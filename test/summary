@@ -1,0 +1,2 @@
+# Case path relative to cases/ and expected process exit status.
+return_zero.cx 0

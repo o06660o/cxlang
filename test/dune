@@ -1,0 +1,9 @@
+(rule
+ (alias runtest)
+ (deps
+  run.py
+  summary
+  (glob_files cases/*.cx)
+  ../bin/cxcc.exe)
+ (action
+  (run python3 %{dep:run.py} %{exe:../bin/cxcc.exe})))
