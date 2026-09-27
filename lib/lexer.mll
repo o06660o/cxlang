@@ -1,57 +1,56 @@
 {
 
-open Parser
 exception Lexer_error of string
 let error fmt = Printf.ksprintf (fun msg -> raise (Lexer_error msg)) fmt
 
 let reserved = Hashtbl.of_seq (List.to_seq [
-  ("auto", AUTO);
-  ("bool", BOOL);
-  ("break", BREAK);
-  ("continue", CONTINUE);
-  ("extern", EXTERN);
-  ("else", ELSE);
-  ("false", FALSE);
-  ("fn", FN);
-  ("if", IF);
-  ("loop", LOOP);
-  ("ptr", PTR);
-  ("return", RETURN);
-  ("true", TRUE);
-  ("(", LPAREN);
-  (")", RPAREN);
-  ("[", LBRACKET);
-  ("]", RBRACKET);
-  ("{", LBRACE);
-  ("}", RBRACE);
-  (":", COLON);
-  (",", COMMA);
-  (".", DOT);
-  (";", SEMI);
-  ("=", EQ);
-  ("->", ARROW);
-  ("~", TILDE);
-  ("!", BANG);
-  ("/", SLASH);
-  ("*", STAR);
-  ("%", PERC);
-  ("+", PLUS);
-  ("-", DASH);
-  ("<<", LTLT);
-  (">>", GTGT);
-  ("<", LT);
-  ("<=", LTEQ);
-  (">", GT);
-  (">=", GTEQ);
-  ("==", EQEQ);
-  ("!=", BANGEQ);
-  ("&", AMP);
-  ("^", CARET);
-  ("|", BAR);
-  ("&&", AMPAMP);
-  ("||", BARBAR);
-  ("#deref", DEREF);
-  ("#addrof", ADDROF);
+  ("auto", Parser.AUTO);
+  ("bool", Parser.BOOL);
+  ("break", Parser.BREAK);
+  ("continue", Parser.CONTINUE);
+  ("extern", Parser.EXTERN);
+  ("else", Parser.ELSE);
+  ("false", Parser.FALSE);
+  ("fn", Parser.FN);
+  ("if", Parser.IF);
+  ("loop", Parser.LOOP);
+  ("ptr", Parser.PTR);
+  ("return", Parser.RETURN);
+  ("true", Parser.TRUE);
+  ("(", Parser.LPAREN);
+  (")", Parser.RPAREN);
+  ("[", Parser.LBRACKET);
+  ("]", Parser.RBRACKET);
+  ("{", Parser.LBRACE);
+  ("}", Parser.RBRACE);
+  (":", Parser.COLON);
+  (",", Parser.COMMA);
+  (".", Parser.DOT);
+  (";", Parser.SEMI);
+  ("=", Parser.EQ);
+  ("->", Parser.ARROW);
+  ("~", Parser.TILDE);
+  ("!", Parser.BANG);
+  ("/", Parser.SLASH);
+  ("*", Parser.STAR);
+  ("%", Parser.PERC);
+  ("+", Parser.PLUS);
+  ("-", Parser.DASH);
+  ("<<", Parser.LTLT);
+  (">>", Parser.GTGT);
+  ("<", Parser.LT);
+  ("<=", Parser.LTEQ);
+  (">", Parser.GT);
+  (">=", Parser.GTEQ);
+  ("==", Parser.EQEQ);
+  ("!=", Parser.BANGEQ);
+  ("&", Parser.AMP);
+  ("^", Parser.CARET);
+  ("|", Parser.BAR);
+  ("&&", Parser.AMPAMP);
+  ("||", Parser.BARBAR);
+  ("#deref", Parser.DEREF);
+  ("#addrof", Parser.ADDROF);
 ])
 
 let reserved_or_id name =
@@ -70,13 +69,13 @@ let symbol = "(" | ")" | "[" | "]" | "{" | "}" | ":" | "," | "." | ";" | "=" | "
   | "|" | "&&" | "||"
 
 rule token = parse
-  | eof { EOF }
+  | eof { Parser.EOF }
   | whitespace+ { token lexbuf }
 
-  | 'i' (['0' - '9']+ as bits) { SIGNED_TY (int_of_string bits) }
-  | 'u' (['0' - '9']+ as bits) { UNSIGNED_TY (int_of_string bits) }
-  | ['0' - '9']+ as literal { INT (int_of_string literal) }
-  | (['0' - '9']+ '_' ('i' | 'u') ['0' - '9']+) as literal { CONST_INT literal }
+  | 'i' (['0' - '9']+ as bits) { Parser.SIGNED_TY (int_of_string bits) }
+  | 'u' (['0' - '9']+ as bits) { Parser.UNSIGNED_TY (int_of_string bits) }
+  | ['0' - '9']+ as literal { Parser.INT (int_of_string literal) }
+  | (['0' - '9']+ '_' ('i' | 'u') ['0' - '9']+) as literal { Parser.CONST_INT literal }
 
   | (('#' ident) | symbol | ident) as name { reserved_or_id name }
   | _ as c { error "unexpected character %C" c }

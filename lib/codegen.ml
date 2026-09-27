@@ -398,4 +398,7 @@ let emit_decl (decl : Ast.decl) (ctx : ctx) : unit =
       let llfn = Llvm.declare_function id llfty ctx.llmod in
       Hashtbl.add ctx.funcs id (ptys, rty, llfty, llfn)
 
-let codegen (prog : Ast.prog) (ctx : ctx) : unit = List.iter (fun decl -> emit_decl decl ctx) prog
+let codegen (prog : Ast.prog) (llctx : Llvm.llcontext) : Llvm.llmodule =
+  let ctx = ctx_create llctx in
+  List.iter (fun decl -> emit_decl decl ctx) prog;
+  ctx.llmod

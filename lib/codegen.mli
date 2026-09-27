@@ -1,4 +1,3 @@
-type ctx
+exception Codegen_error of string
 
-val ctx_create : Llvm.llcontext -> ctx
-val codegen : Ast.prog -> ctx -> unit
+val codegen : Ast.prog -> Llvm.llcontext -> Llvm.llmodule

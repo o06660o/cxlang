@@ -1,0 +1,3 @@
+(executable
+ (name cxcc)
+ (libraries lang llvm llvm.target llvm.all_backends))
