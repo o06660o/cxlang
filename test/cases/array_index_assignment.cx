@@ -1,0 +1,5 @@
+fn main() -> i32 {
+  auto numbers = [4_i32, 6_i32, 8_i32];
+  numbers[1_i32] = 9_i32;
+  return numbers[0_i32] + numbers[1_i32] + numbers[2_i32];
+}

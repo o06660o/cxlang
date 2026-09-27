@@ -1,0 +1,15 @@
+fn main() -> i32 {
+  auto value = 3_i32;
+  auto result = 0_i32;
+  if (false) {
+    result = 99_i32;
+  } else {
+    auto value = 11_i32;
+    result = value + 2_i32;
+  }
+  if (true) {
+    auto value = 20_i32;
+    result = result + value;
+  }
+  return result + value;
+}

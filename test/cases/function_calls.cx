@@ -1,0 +1,17 @@
+fn twice(value: i32) -> i32 {
+  return value + value;
+}
+
+fn bump(address: ptr) {
+  #deref(address, i32) = #deref(address, i32) + 1_i32;
+}
+
+fn add(left: i32, right: i32) -> i32 {
+  return left + right;
+}
+
+fn main() -> i32 {
+  auto value = 6_i32;
+  bump(#addrof(value));
+  return add(twice(value), 3_i32);
+}

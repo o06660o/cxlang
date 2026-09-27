@@ -1,2 +1,20 @@
 # Case path relative to cases/ and expected process exit status.
 return_zero.cx 0
+arithmetic_precedence.cx 9
+arithmetic_signed.cx 15
+arithmetic_unsigned.cx 45
+bitwise_shift.cx 17
+signed_right_shift.cx 31
+comparisons.cx 29
+casts_and_bool.cx 41
+short_circuit.cx 2
+conditional_scope.cx 36
+loop_break_continue.cx 12
+nested_loops.cx 6
+array_index_assignment.cx 21
+nested_arrays.cx 9
+aggregate_member.cx 14
+pointer_deref.cx 23
+function_calls.cx 17
+recursive_factorial.cx 120
+extern_abs.cx 23

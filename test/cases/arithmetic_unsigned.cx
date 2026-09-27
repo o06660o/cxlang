@@ -1,0 +1,6 @@
+fn main() -> i32 {
+  auto quotient = 255_u8 / 16_u8;
+  auto remainder = 255_u8 % 16_u8;
+  auto shifted = 240_u8 >> 4_u8;
+  return (i32)quotient + (i32)remainder + (i32)shifted;
+}
