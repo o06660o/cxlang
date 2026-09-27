@@ -33,10 +33,13 @@ let rec emit_ty (ty : Ast.ty) (ctx : ctx) : Llvm.lltype =
 let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
   let rec consteval (expr : Ast.const) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
     match expr with
-    | Ast.ConstInt (("true" | "false") as literal) ->
+    | (Ast.True | Ast.False) as value ->
         let ty = Ast.Int Ast.Bool in
         let llty = emit_ty ty ctx in
-        let llval = Llvm.const_int llty (if literal = "false" then 0 else 1) in
+        let llval =
+          Llvm.const_int llty
+            (match value with Ast.True -> 1 | Ast.False -> 0 | _ -> assert false)
+        in
         (ty, llty, llval)
     | Ast.ConstInt literal ->
         let digits, ty =
@@ -117,27 +120,27 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
       if ty <> ety then error "assignment type mismatch";
       ignore (Llvm.build_store llval addr ctx.llbdr);
       (ty, llty, llval)
-  | Ast.Cast (ty, expr) ->
+  | Ast.Cast (ity, expr) ->
+      let ty = Ast.Int ity in
       let sty, sllty, sllval = emit_expr expr ctx in
       let llty = emit_ty ty ctx in
+      let sity =
+        match sty with Ast.Int sity -> sity | _ -> error "cast requires an integer operand"
+      in
       let llval =
-        match (sty, ty) with
-        | Ast.Int sity, Ast.Int ity -> (
-            match (sity, ity) with
-            | Ast.Bool, Ast.Bool -> sllval
-            | Ast.Bool, _ -> Llvm.build_zext sllval llty "" ctx.llbdr
-            | _, Ast.Bool ->
-                Llvm.build_icmp Llvm.Icmp.Ne sllval (Llvm.const_null sllty) "" ctx.llbdr
-            | _ -> (
-                let sbits = Llvm.integer_bitwidth sllty in
-                let bits = Llvm.integer_bitwidth llty in
-                if sbits = bits then sllval
-                else if sbits > bits then Llvm.build_trunc sllval llty "" ctx.llbdr
-                else
-                  match sity with
-                  | Ast.Signed _ -> Llvm.build_sext sllval llty "" ctx.llbdr
-                  | _ -> Llvm.build_zext sllval llty "" ctx.llbdr))
-        | _ -> error "cast only supports integer types"
+        match (sity, ity) with
+        | Ast.Bool, Ast.Bool -> sllval
+        | Ast.Bool, _ -> Llvm.build_zext sllval llty "" ctx.llbdr
+        | _, Ast.Bool -> Llvm.build_icmp Llvm.Icmp.Ne sllval (Llvm.const_null sllty) "" ctx.llbdr
+        | _ -> (
+            let sbits = Llvm.integer_bitwidth sllty in
+            let bits = Llvm.integer_bitwidth llty in
+            if sbits = bits then sllval
+            else if sbits > bits then Llvm.build_trunc sllval llty "" ctx.llbdr
+            else
+              match sity with
+              | Ast.Signed _ -> Llvm.build_sext sllval llty "" ctx.llbdr
+              | _ -> Llvm.build_zext sllval llty "" ctx.llbdr)
       in
       (ty, llty, llval)
   | Ast.Unary (op, expr) -> (

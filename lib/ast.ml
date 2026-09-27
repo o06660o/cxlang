@@ -3,7 +3,7 @@ type id = string
 type ty = Int of ity | Arr of ty * int | Aggr of ty list | Ptr
 and ity = Bool | Signed of int | Unsigned of int
 
-type const = ConstInt of string | ConstArr of const list | ConstAggr of const list
+type const = True | False | ConstInt of string | ConstArr of const list | ConstAggr of const list
 
 type uop = (* ~ *) Not | (* ! *) LgNot
 
@@ -40,7 +40,7 @@ type expr =
   | Const of const
   | Id of id
   | Assn of expr * expr
-  | Cast of ty * expr
+  | Cast of ity * expr
   | Unary of uop * expr
   | Binary of expr * bop * expr
   | Index of expr * expr
