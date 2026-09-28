@@ -18,7 +18,8 @@
 %token LOOP     /* loop */
 %token PTR      /* ptr */
 %token RETURN   /* return */
-%token TRUE     /* TRUE */
+%token TRUE     /* true */
+%token USING    /* using */
 
 /* Symbols */
 %token LPAREN   /* ( */
@@ -55,6 +56,7 @@
 %token BARBAR   /* || */
 
 /* Builtins */
+%token CAST   /* #cast */
 %token DEREF  /* #deref */
 %token ADDROF /* #addrof */
 
@@ -69,7 +71,7 @@
 %left LTLT GTGT
 %left PLUS DASH
 %left STAR SLASH PERC
-%right UNARY
+%right TILDE BANG
 %left LBRACKET DOT
 
 %start <Ast.prog> prog
@@ -80,16 +82,14 @@ _block: LBRACE stmts=list(stmt) RBRACE { stmts }
 _pair_idty: id=ID COLON ty=ty { (id, ty) }
 _pair_idexpr: id=ID COLON expr=expr { (id, expr) }
 
-sty:
+ty:
   | BOOL { Ast.Bool }
   | ty=INT_TY { Ast.Int ty }
-
-ty:
-  | sty=sty { Ast.Scalar sty }
   | LBRACKET ty=ty SEMI cnt=INT RBRACKET { Ast.Array (ty, cnt) }
   | LBRACE items=separated_nonempty_list(SEMI, ty) RBRACE { Ast.Tuple items }
   | LBRACE items=separated_nonempty_list(SEMI, _pair_idty) RBRACE { Ast.Struct items }
   | PTR { Ast.Ptr }
+  | id=ID { Ast.Alias id }
 
 %inline uop:
   | TILDE { Ast.Not }
@@ -125,12 +125,12 @@ expr:
   | LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE { Ast.NewStruct items }
   | id=ID { Ast.Id id }
   | var=expr EQ expr=expr { Ast.Assn (var, expr) }
-  | LPAREN sty=sty RPAREN expr=expr %prec UNARY { Ast.Cast (sty, expr) }
-  | op=uop expr=expr %prec UNARY { Ast.Unary (op, expr) }
+  | op=uop expr=expr { Ast.Unary (op, expr) }
   | lhs=expr op=bop rhs=expr { Ast.Binary (lhs, op, rhs) }
   | base=expr LBRACKET idx=expr RBRACKET { Ast.MemArray (base, idx) }
   | base=expr DOT loc=INT { Ast.MemTuple (base, loc) }
   | base=expr DOT loc=ID { Ast.MemStruct (base, loc) }
+  | CAST LPAREN ty=ty COMMA expr=expr RPAREN { Ast.Cast (ty, expr) }
   | DEREF LPAREN ptr=expr COMMA ty=ty RPAREN { Ast.Deref (ptr, ty) }
   | ADDROF LPAREN expr=expr RPAREN { Ast.Addrof expr }
   | id=ID LPAREN args=separated_list(COMMA, expr) RPAREN { Ast.Call (id, args) }
@@ -149,6 +149,7 @@ stmt:
   | RETURN expr=option(expr) SEMI { Ast.Return expr }
 
 decl:
+  | USING id=ID EQ ty=ty SEMI { Ast.Type (id, ty) }
   | FN id=ID LPAREN params=separated_list(COMMA,_pair_idty) RPAREN rty=option(preceded(ARROW,ty))
   stmts=_block { Ast.Func (id, params, rty, stmts) }
   | EXTERN FN id=ID LPAREN ptys=separated_list(COMMA,ty) RPAREN rty=option(preceded(ARROW,ty)) SEMI

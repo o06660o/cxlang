@@ -1,0 +1,16 @@
+using Small = i8;
+using Wide = i32;
+using Result = Wide;
+
+fn widen(value: Small) -> Result {
+  return #cast(Result, value);
+}
+
+fn bump(value: Result) -> Result {
+  return value + 1_i32;
+}
+
+fn main() -> i32 {
+  auto signed = #cast(Small, 255_u8);
+  return bump(widen(signed)) + bump(0_i32) + 41_i32;
+}

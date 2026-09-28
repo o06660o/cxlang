@@ -12,5 +12,5 @@ fn sum_record(value: {left: i32; right: i32}) -> i32 {
 
 fn main() -> i32 {
   auto pair = make_pair();
-  return sum_pair(pair) + sum_record({ left: 8_i32, right: 9_i32 });
+  return sum_pair(pair) + sum_record({left: 8_i32, right: 9_i32});
 }

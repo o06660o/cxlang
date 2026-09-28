@@ -3,7 +3,7 @@ fn main() -> i32 {
   record.count = record.count * 2_i32;
   record.offset = record.offset + 1_u8;
   if (record.enabled) {
-    return record.count + (i32)record.offset;
+    return record.count + #cast(i32, record.offset);
   }
   return 0_i32;
 }

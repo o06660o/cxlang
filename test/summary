@@ -7,6 +7,7 @@ bitwise_shift.cx 17
 signed_right_shift.cx 31
 comparisons.cx 29
 casts_and_bool.cx 41
+cast_nested.cx 42
 short_circuit.cx 2
 conditional_scope.cx 36
 loop_break_continue.cx 12
@@ -26,3 +27,6 @@ array_of_tuples.cx 15
 struct_array_field.cx 9
 bool_array.cx 23
 typed_array_arguments.cx 6
+type_alias_scalar.cx 42
+type_alias_aggregates.cx 21
+type_alias_pointer.cx 42

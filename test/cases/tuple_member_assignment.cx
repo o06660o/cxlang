@@ -1,9 +1,9 @@
 fn main() -> i32 {
-  auto value = { 10_i32, 2_u8, true };
+  auto value = {10_i32, 2_u8, true};
   value.0 = value.0 + 5_i32;
   value.1 = 4_u8;
   if (value.2) {
-    return value.0 + (i32)value.1;
+    return value.0 + #cast(i32, value.1);
   }
   return 0_i32;
 }

@@ -1,7 +1,13 @@
 type id = string
 
-type ty = Scalar of sty | Array of ty * int | Tuple of ty list | Struct of (id * ty) list | Ptr
-and sty = Bool | Int of (int * bool)
+type ty =
+  | Bool
+  | Int of (int * bool)
+  | Array of ty * int
+  | Tuple of ty list
+  | Struct of (id * ty) list
+  | Ptr
+  | Alias of id
 
 type uop = (* ~ *) Not | (* ! *) LgNot
 
@@ -43,15 +49,15 @@ type expr =
   | NewStruct of (id * expr) list
   | Id of id
   | Assn of expr * expr
-  | Cast of sty * expr
   | Unary of uop * expr
   | Binary of expr * bop * expr
   | MemArray of expr * expr
   | MemTuple of expr * int
   | MemStruct of expr * id
+  | Call of id * expr list
+  | Cast of ty * expr
   | Deref of expr * ty
   | Addrof of expr
-  | Call of id * expr list
 
 type stmt =
   | Expr of expr
@@ -63,6 +69,7 @@ type stmt =
   | Return of expr option
 
 type decl =
+  | Type of id * ty
   | Func of id * (id * ty) list * ty option * stmt list
   | ExtFunc of id * ty list * ty option
 

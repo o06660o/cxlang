@@ -17,6 +17,7 @@ let reserved = Hashtbl.of_seq (List.to_seq [
   ("ptr", Parser.PTR);
   ("return", Parser.RETURN);
   ("true", Parser.TRUE);
+  ("using", Parser.USING);
   ("(", Parser.LPAREN);
   (")", Parser.RPAREN);
   ("[", Parser.LBRACKET);
@@ -49,6 +50,7 @@ let reserved = Hashtbl.of_seq (List.to_seq [
   ("|", Parser.BAR);
   ("&&", Parser.AMPAMP);
   ("||", Parser.BARBAR);
+  ("#cast", Parser.CAST);
   ("#deref", Parser.DEREF);
   ("#addrof", Parser.ADDROF);
 ])
