@@ -1,0 +1,10 @@
+fn sum(value: [u8; 7]) -> i32 {
+  return #cast(i32, value[0_i32]) + #cast(i32, value[1_i32]) +
+         #cast(i32, value[2_i32]) + #cast(i32, value[3_i32]) +
+         #cast(i32, value[4_i32]) + #cast(i32, value[5_i32]) +
+         #cast(i32, value[6_i32]);
+}
+
+fn main() -> i32 {
+  return sum("A\\\" \n\r\t");
+}

@@ -22,8 +22,8 @@ let ctx_create (llctx : Llvm.llcontext) : ctx =
     llctx;
     llmod;
     llbdr;
-    types = Hashtbl.create 0;
-    funcs = Hashtbl.create 0;
+    types = Hashtbl.create 16;
+    funcs = Hashtbl.create 16;
     vars = [];
     break_blks = [];
     continue_blks = [];
@@ -128,6 +128,13 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
       let llty = emit_ty ty ctx in
       let llval = Llvm.const_int_of_string llty digits 10 in
       (ty, llty, llval)
+  | Ast.NewChar value ->
+      let ty = Ast.Int (8, false) in
+      let llty = emit_ty ty ctx in
+      (ty, llty, Llvm.const_int llty value)
+  | Ast.NewString bytes ->
+      let ty = Ast.Array (Ast.Int (8, false), String.length bytes) in
+      (ty, emit_ty ty ctx, Llvm.const_string ctx.llctx bytes)
   | Ast.NewArray items ->
       let items = List.map (fun expr -> emit_expr expr ctx) items in
       let ity =
@@ -370,7 +377,7 @@ let rec emit_stmt (stmt : Ast.stmt) (ctx : ctx) : bool =
       let _, _, llcval = emit_expr cond ctx in
       ignore (Llvm.build_cond_br llcval then_blk else_blk ctx.llbdr);
 
-      ctx.vars <- Hashtbl.create 0 :: ctx.vars;
+      ctx.vars <- Hashtbl.create 16 :: ctx.vars;
       Llvm.position_at_end then_blk ctx.llbdr;
       let then_terminated = List.exists (fun stmt -> emit_stmt stmt ctx) then_stmts in
       if not then_terminated then ignore (Llvm.build_br join_blk ctx.llbdr);
@@ -378,7 +385,7 @@ let rec emit_stmt (stmt : Ast.stmt) (ctx : ctx) : bool =
       | [] -> error "internal: unexpected empty `ctx.vars`"
       | hd :: tl -> ctx.vars <- tl);
 
-      ctx.vars <- Hashtbl.create 0 :: ctx.vars;
+      ctx.vars <- Hashtbl.create 16 :: ctx.vars;
       Llvm.position_at_end else_blk ctx.llbdr;
       let else_terminated = List.exists (fun stmt -> emit_stmt stmt ctx) else_stmts in
       if not else_terminated then ignore (Llvm.build_br join_blk ctx.llbdr);
@@ -395,7 +402,7 @@ let rec emit_stmt (stmt : Ast.stmt) (ctx : ctx) : bool =
 
       ignore (Llvm.build_br body_blk ctx.llbdr);
 
-      ctx.vars <- Hashtbl.create 0 :: ctx.vars;
+      ctx.vars <- Hashtbl.create 16 :: ctx.vars;
       ctx.break_blks <- exit_blk :: ctx.break_blks;
       ctx.continue_blks <- body_blk :: ctx.continue_blks;
 
@@ -453,7 +460,7 @@ let emit_decl (decl : Ast.decl) (ctx : ctx) : unit =
        let llfn = Llvm.define_function id llfty ctx.llmod in
        Hashtbl.add ctx.funcs id (ptys, rty, llfty, llfn);
 
-       ctx.vars <- Hashtbl.create 0 :: ctx.vars;
+       ctx.vars <- Hashtbl.create 16 :: ctx.vars;
        let entry_blk = Llvm.entry_block llfn in
        Llvm.position_at_end entry_blk ctx.llbdr;
        List.iter2

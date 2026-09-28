@@ -2,6 +2,8 @@
 
 %token <string> ID
 %token <string> CONST_INT
+%token <int> CONST_CHAR
+%token <string> CONST_STRING
 %token <int> INT
 %token <int * bool> INT_TY
 
@@ -120,6 +122,8 @@ expr:
   | TRUE { Ast.NewTrue }
   | FALSE { Ast.NewFalse }
   | literal=CONST_INT { Ast.NewInt literal }
+  | value=CONST_CHAR { Ast.NewChar value }
+  | bytes=CONST_STRING { Ast.NewString bytes }
   | LBRACKET items=separated_list(COMMA, expr) RBRACKET { Ast.NewArray items }
   | LBRACE items=separated_nonempty_list(COMMA, expr) RBRACE { Ast.NewTuple items }
   | LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE { Ast.NewStruct items }

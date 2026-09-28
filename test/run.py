@@ -11,26 +11,29 @@ import sys
 import tempfile
 
 
-def read_summary(path: Path, cases_dir: Path) -> list[tuple[Path, int]]:
-    tests: list[tuple[Path, int]] = []
+def read_summary(path: Path, cases_dir: Path) -> list[tuple[Path, int | None]]:
+    tests: list[tuple[Path, int | None]] = []
     for line_number, raw_line in enumerate(path.read_text().splitlines(), 1):
         line = raw_line.split("#", 1)[0].strip()
         if not line:
             continue
         fields = line.split()
         if len(fields) != 2:
-            raise ValueError(f"{path}:{line_number}: expected '<case> <exit-code>'")
+            raise ValueError(f"{path}:{line_number}: expected '<case> <exit-code|reject>'")
         case_name, expected_text = fields
-        try:
-            expected = int(expected_text, 10)
-        except ValueError as exc:
-            raise ValueError(
-                f"{path}:{line_number}: invalid exit code {expected_text!r}"
-            ) from exc
-        if not 0 <= expected <= 255:
-            raise ValueError(
-                f"{path}:{line_number}: exit code must be between 0 and 255"
-            )
+        if expected_text == "reject":
+            expected = None
+        else:
+            try:
+                expected = int(expected_text, 10)
+            except ValueError as exc:
+                raise ValueError(
+                    f"{path}:{line_number}: invalid exit code {expected_text!r}"
+                ) from exc
+            if not 0 <= expected <= 255:
+                raise ValueError(
+                    f"{path}:{line_number}: exit code must be between 0 and 255"
+                )
         case = (cases_dir / case_name).resolve()
         try:
             case.relative_to(cases_dir.resolve())
@@ -56,12 +59,18 @@ def display_command(command: list[str]) -> str:
     return " ".join(subprocess.list2cmdline([part]) for part in command)
 
 
-def run_test(compiler: Path, case: Path, expected: int, output_dir: Path) -> bool:
+def run_test(compiler: Path, case: Path, expected: int | None, output_dir: Path) -> bool:
     name = case.stem
     object_file = output_dir / f"{name}.o"
     executable = output_dir / name
     compile_command = [str(compiler), "-o", str(object_file), str(case)]
     result = run_command(compile_command, cwd=output_dir)
+    if expected is None:
+        if result.returncode != 0:
+            print(f"PASS {case.name} (rejected)")
+            return True
+        print(f"FAIL {case.name}: expected compile rejection")
+        return False
     if result.returncode != 0:
         print(f"FAIL {case.name}: compile failed")
         print(f"  {display_command(compile_command)}")

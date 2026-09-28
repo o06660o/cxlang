@@ -1,4 +1,4 @@
-# Case path relative to cases/ and expected process exit status.
+# Case path relative to cases/ and expected process exit status, or reject.
 return_zero.cx 0
 arithmetic_precedence.cx 9
 arithmetic_signed.cx 15
@@ -30,3 +30,7 @@ typed_array_arguments.cx 6
 type_alias_scalar.cx 42
 type_alias_aggregates.cx 21
 type_alias_pointer.cx 42
+string_escapes.cx 255
+string_utf8_empty.cx 1
+char_literals.cx 42
+char_out_of_range.cx reject

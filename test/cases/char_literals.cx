@@ -1,0 +1,13 @@
+fn main() -> i32 {
+  auto chars = ['\\', '\'', '\"', ' ', '\n', '\r', '\t'];
+  auto text = "it\'s";
+  auto sum = #cast(i32, chars[0_i32]) + #cast(i32, chars[1_i32]) +
+             #cast(i32, chars[2_i32]) + #cast(i32, chars[3_i32]) +
+             #cast(i32, chars[4_i32]) + #cast(i32, chars[5_i32]) +
+             #cast(i32, chars[6_i32]);
+  if (sum == 229_i32 && 'é' == 233_u8 && 'ÿ' == 255_u8 &&
+      text[2_i32] == 39_u8) {
+    return 42_i32;
+  }
+  return 0_i32;
+}

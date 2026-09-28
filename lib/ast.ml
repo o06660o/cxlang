@@ -44,6 +44,8 @@ type expr =
   | NewTrue
   | NewFalse
   | NewInt of string
+  | NewChar of int
+  | NewString of string
   | NewArray of expr list
   | NewTuple of expr list
   | NewStruct of (id * expr) list
