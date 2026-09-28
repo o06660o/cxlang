@@ -1,9 +1,7 @@
 type id = string
 
-type ty = Int of ity | Arr of ty * int | Aggr of ty list | Ptr
-and ity = Bool | Signed of int | Unsigned of int
-
-type const = True | False | ConstInt of string | ConstArr of const list | ConstAggr of const list
+type ty = Scalar of sty | Array of ty * int | Tuple of ty list | Struct of (id * ty) list | Ptr
+and sty = Bool | Int of (int * bool)
 
 type uop = (* ~ *) Not | (* ! *) LgNot
 
@@ -37,14 +35,20 @@ and bop =
   | (* || *) LgOr
 
 type expr =
-  | Const of const
+  | NewTrue
+  | NewFalse
+  | NewInt of string
+  | NewArray of expr list
+  | NewTuple of expr list
+  | NewStruct of (id * expr) list
   | Id of id
   | Assn of expr * expr
-  | Cast of ity * expr
+  | Cast of sty * expr
   | Unary of uop * expr
   | Binary of expr * bop * expr
-  | Index of expr * expr
-  | Member of expr * int
+  | MemArray of expr * expr
+  | MemTuple of expr * int
+  | MemStruct of expr * id
   | Deref of expr * ty
   | Addrof of expr
   | Call of id * expr list

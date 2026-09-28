@@ -3,8 +3,7 @@
 %token <string> ID
 %token <string> CONST_INT
 %token <int> INT
-%token <int> SIGNED_TY
-%token <int> UNSIGNED_TY
+%token <int * bool> INT_TY
 
 /* Keywords */
 %token AUTO     /* auto */
@@ -78,26 +77,19 @@
 %%
 
 _block: LBRACE stmts=list(stmt) RBRACE { stmts }
-_param: id=ID COLON pty=ty { (id, pty) }
+_pair_idty: id=ID COLON ty=ty { (id, ty) }
+_pair_idexpr: id=ID COLON expr=expr { (id, expr) }
 
-ity:
+sty:
   | BOOL { Ast.Bool }
-  | bits=SIGNED_TY { Ast.Signed bits }
-  | bits=UNSIGNED_TY { Ast.Unsigned bits }
+  | ty=INT_TY { Ast.Int ty }
 
 ty:
-  | ity=ity { Ast.Int ity }
+  | sty=sty { Ast.Scalar sty }
+  | LBRACKET ty=ty SEMI cnt=INT RBRACKET { Ast.Array (ty, cnt) }
+  | LBRACE items=separated_nonempty_list(SEMI, ty) RBRACE { Ast.Tuple items }
+  | LBRACE items=separated_nonempty_list(SEMI, _pair_idty) RBRACE { Ast.Struct items }
   | PTR { Ast.Ptr }
-  | LBRACKET ty=ty SEMI cnt=INT RBRACKET { Ast.Arr (ty, cnt) }
-  | LBRACE items=separated_list(SEMI, ty) RBRACE { Ast.Aggr items }
-
-const:
-  | TRUE { Ast.True }
-  | FALSE { Ast.False }
-  | literal=CONST_INT { Ast.ConstInt literal }
-  | LBRACKET items=separated_list(COMMA, const) RBRACKET { Ast.ConstArr items }
-  | LBRACE items=separated_list(COMMA, const) RBRACE { Ast.ConstAggr items }
-
 
 %inline uop:
   | TILDE { Ast.Not }
@@ -125,14 +117,20 @@ const:
 
 expr:
   | LPAREN expr=expr RPAREN { expr }
+  | TRUE { Ast.NewTrue }
+  | FALSE { Ast.NewFalse }
+  | literal=CONST_INT { Ast.NewInt literal }
+  | LBRACKET items=separated_list(COMMA, expr) RBRACKET { Ast.NewArray items }
+  | LBRACE items=separated_nonempty_list(COMMA, expr) RBRACE { Ast.NewTuple items }
+  | LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE { Ast.NewStruct items }
   | id=ID { Ast.Id id }
-  | const=const { Ast.Const const }
   | var=expr EQ expr=expr { Ast.Assn (var, expr) }
-  | LPAREN ity=ity RPAREN expr=expr %prec UNARY { Ast.Cast (ity, expr) }
+  | LPAREN sty=sty RPAREN expr=expr %prec UNARY { Ast.Cast (sty, expr) }
   | op=uop expr=expr %prec UNARY { Ast.Unary (op, expr) }
   | lhs=expr op=bop rhs=expr { Ast.Binary (lhs, op, rhs) }
-  | base=expr LBRACKET idx=expr RBRACKET { Ast.Index (base, idx) }
-  | base=expr DOT loc=INT { Ast.Member (base, loc) }
+  | base=expr LBRACKET idx=expr RBRACKET { Ast.MemArray (base, idx) }
+  | base=expr DOT loc=INT { Ast.MemTuple (base, loc) }
+  | base=expr DOT loc=ID { Ast.MemStruct (base, loc) }
   | DEREF LPAREN ptr=expr COMMA ty=ty RPAREN { Ast.Deref (ptr, ty) }
   | ADDROF LPAREN expr=expr RPAREN { Ast.Addrof expr }
   | id=ID LPAREN args=separated_list(COMMA, expr) RPAREN { Ast.Call (id, args) }
@@ -151,7 +149,7 @@ stmt:
   | RETURN expr=option(expr) SEMI { Ast.Return expr }
 
 decl:
-  | FN id=ID LPAREN params=separated_list(COMMA,_param) RPAREN rty=option(preceded(ARROW,ty))
+  | FN id=ID LPAREN params=separated_list(COMMA,_pair_idty) RPAREN rty=option(preceded(ARROW,ty))
   stmts=_block { Ast.Func (id, params, rty, stmts) }
   | EXTERN FN id=ID LPAREN ptys=separated_list(COMMA,ty) RPAREN rty=option(preceded(ARROW,ty)) SEMI
     { Ast.ExtFunc (id, ptys, rty) }

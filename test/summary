@@ -18,3 +18,11 @@ pointer_deref.cx 23
 function_calls.cx 17
 recursive_factorial.cx 120
 extern_abs.cx 23
+tuple_member_assignment.cx 19
+struct_member_assignment.cx 20
+nested_aggregates.cx 18
+aggregate_arguments.cx 38
+array_of_tuples.cx 15
+struct_array_field.cx 9
+bool_array.cx 23
+typed_array_arguments.cx 6

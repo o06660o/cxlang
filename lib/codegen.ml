@@ -23,88 +23,54 @@ let ctx_create (llctx : Llvm.llcontext) : ctx =
 
 let rec emit_ty (ty : Ast.ty) (ctx : ctx) : Llvm.lltype =
   match ty with
-  | Ast.Int Ast.Bool -> Llvm.i1_type ctx.llctx
-  | Ast.Int (Signed bits) | Ast.Int (Unsigned bits) -> Llvm.integer_type ctx.llctx bits
-  | Ast.Arr (ty, cnt) -> Llvm.array_type (emit_ty ty ctx) cnt
-  | Ast.Aggr items ->
+  | Ast.Scalar Ast.Bool -> Llvm.i1_type ctx.llctx
+  | Ast.Scalar (Ast.Int (bits, _)) -> Llvm.integer_type ctx.llctx bits
+  | Ast.Array (ty, cnt) -> Llvm.array_type (emit_ty ty ctx) cnt
+  | Ast.Tuple items ->
       Llvm.struct_type ctx.llctx (Array.of_list (List.map (fun ty -> emit_ty ty ctx) items))
+  | Ast.Struct items ->
+      Llvm.struct_type ctx.llctx (Array.of_list (List.map (fun (_, ty) -> emit_ty ty ctx) items))
   | Ast.Ptr -> Llvm.pointer_type ctx.llctx
 
 let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
-  let rec consteval (expr : Ast.const) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
-    match expr with
-    | (Ast.True | Ast.False) as value ->
-        let ty = Ast.Int Ast.Bool in
-        let llty = emit_ty ty ctx in
-        let llval =
-          Llvm.const_int llty
-            (match value with Ast.True -> 1 | Ast.False -> 0 | _ -> assert false)
-        in
-        (ty, llty, llval)
-    | Ast.ConstInt literal ->
-        let digits, ty =
-          match String.split_on_char '_' literal with
-          | [ digits ] -> (digits, Ast.Int (Ast.Signed 32))
-          | [ digits; suffix ] when String.length suffix >= 2 -> (
-              let bits = int_of_string (String.sub suffix 1 (String.length suffix - 1)) in
-              if bits mod 8 <> 0 then error "integer bit width must be a multiple of 8, got %d" bits;
-              match suffix.[0] with
-              | 'i' -> (digits, Ast.Int (Ast.Signed bits))
-              | 'u' -> (digits, Ast.Int (Ast.Unsigned bits))
-              | _ -> error "invalid integer suffix %S" suffix)
-          | _ -> error "invalid integer literal %S" literal
-        in
-        let llty = emit_ty ty ctx in
-        let llval = Llvm.const_int_of_string llty digits 10 in
-        (ty, llty, llval)
-    | Ast.ConstArr items ->
-        let items = List.map (fun item -> consteval item ctx) items in
-        let ity =
-          match items with
-          | [] -> Ast.Int (Ast.Signed 32)
-          | (ty, _, _) :: tl ->
-              List.iter
-                (fun (ity, _, _) ->
-                  if ity <> ty then error "array constant has mixed element types")
-                tl;
-              ty
-        in
-        let ty = Ast.Arr (ity, List.length items) in
-        let llty = emit_ty ty ctx in
-        let elems = Array.of_list (List.map (fun (_, _, llval) -> llval) items) in
-        let llval = Llvm.const_array (emit_ty ity ctx) elems in
-        (ty, llty, llval)
-    | Ast.ConstAggr items ->
-        let items = List.map (fun item -> consteval item ctx) items in
-        let ty = Ast.Aggr (List.map (fun (ty, _, _) -> ty) items) in
-        let llty = emit_ty ty ctx in
-        let items = Array.of_list (List.map (fun (_, _, llval) -> llval) items) in
-        let llval = Llvm.const_struct ctx.llctx items in
-        (ty, llty, llval)
-  in
   let rec addreval (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
     match expr with
     | Ast.Id id -> (
         match List.find_map (fun vars -> Hashtbl.find_opt vars id) ctx.vars with
         | Some (ty, llty, addr) -> (ty, llty, addr)
         | None -> error "undefined variable \"%s\"" id)
-    | Ast.Index (base, idx) -> (
+    | Ast.MemArray (base, idx) -> (
         let bty, bllty, baddr = addreval base ctx in
         match bty with
-        | Ast.Arr (ety, _) ->
+        | Ast.Array (ety, _) ->
             let _, _, idx = emit_expr idx ctx in
             let zero = Llvm.const_int (Llvm.i32_type ctx.llctx) 0 in
             let addr = Llvm.build_gep bllty baddr [| zero; idx |] "" ctx.llbdr in
             (ety, emit_ty ety ctx, addr)
         | _ -> error "indexing requires an array")
-    | Ast.Member (base, loc) -> (
+    | Ast.MemTuple (base, loc) -> (
         let bty, bllty, baddr = addreval base ctx in
         match bty with
-        | Ast.Aggr items ->
+        | Ast.Tuple items ->
             let ity = List.nth items loc in
             let addr = Llvm.build_struct_gep bllty baddr loc "" ctx.llbdr in
             (ity, emit_ty ity ctx, addr)
         | _ -> error "member access requires an aggregate")
+    | Ast.MemStruct (base, loc) -> (
+        let bty, bllty, baddr = addreval base ctx in
+        match bty with
+        | Ast.Struct items -> (
+            match
+              List.filter
+                (fun (_, name, _) -> name = loc)
+                (List.mapi (fun idx (name, ty) -> (idx, name, ty)) items)
+            with
+            | [ (idx, _, ty) ] ->
+                let addr = Llvm.build_struct_gep bllty baddr idx "" ctx.llbdr in
+                (ty, emit_ty ty ctx, addr)
+            | [] -> error "struct has no field \"%s\"" loc
+            | _ -> error "ambiguous struct field \"%s\"" loc)
+        | _ -> error "member access requires a struct")
     | Ast.Deref (ptr, ty) -> (
         let pty, _, pllval = emit_expr ptr ctx in
         match pty with
@@ -113,49 +79,122 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
     | _ -> error "expression is not an lvalue"
   in
   match expr with
-  | Ast.Const constexpr -> consteval constexpr ctx
+  | Ast.NewTrue ->
+      let ty = Ast.Scalar Ast.Bool in
+      let llty = emit_ty ty ctx in
+      (ty, llty, Llvm.const_int llty 1)
+  | Ast.NewFalse ->
+      let ty = Ast.Scalar Ast.Bool in
+      let llty = emit_ty ty ctx in
+      (ty, llty, Llvm.const_int llty 0)
+  | Ast.NewInt literal ->
+      let digits, ty =
+        match String.split_on_char '_' literal with
+        | [ digits; suffix ] when String.length suffix >= 2 -> (
+            let bits = int_of_string (String.sub suffix 1 (String.length suffix - 1)) in
+            if bits mod 8 <> 0 then error "integer bit width must be a multiple of 8, got %d" bits;
+            match suffix.[0] with
+            | 'i' -> (digits, Ast.Scalar (Ast.Int (bits, true)))
+            | 'u' -> (digits, Ast.Scalar (Ast.Int (bits, false)))
+            | _ -> error "invalid integer suffix %S" suffix)
+        | _ -> error "invalid integer literal %S" literal
+      in
+      let llty = emit_ty ty ctx in
+      let llval = Llvm.const_int_of_string llty digits 10 in
+      (ty, llty, llval)
+  | Ast.NewArray items ->
+      let items = List.map (fun expr -> emit_expr expr ctx) items in
+      let ity =
+        match items with
+        | [] -> error "new empty array not allowed"
+        | (ty, _, _) :: tl ->
+            List.iter
+              (fun (ity, _, _) -> if ity <> ty then error "array constant has mixed element types")
+              tl;
+            ty
+      in
+      let ty = Ast.Array (ity, List.length items) in
+      let llty = emit_ty ty ctx in
+      let elems = List.mapi (fun index (_, _, value) -> (index, value)) items in
+      let llval =
+        List.fold_left
+          (fun array (index, value) -> Llvm.build_insertvalue array value index "" ctx.llbdr)
+          (Llvm.undef llty) elems
+      in
+      (ty, llty, llval)
+  | Ast.NewTuple exprs ->
+      let items = List.map (fun expr -> emit_expr expr ctx) exprs in
+      let ty = Ast.Tuple (List.map (fun (ty, _, _) -> ty) items) in
+      let llty = emit_ty ty ctx in
+      let indexed = List.mapi (fun index (_, _, value) -> (index, value)) items in
+      let llval =
+        List.fold_left
+          (fun tuple (index, value) -> Llvm.build_insertvalue tuple value index "" ctx.llbdr)
+          (Llvm.undef llty) indexed
+      in
+      (ty, llty, llval)
+  | Ast.NewStruct items ->
+      let items =
+        List.map
+          (fun (name, expr) ->
+            let ty, _, llval = emit_expr expr ctx in
+            (name, ty, llval))
+          items
+      in
+      let ty = Ast.Struct (List.map (fun (name, ty, _) -> (name, ty)) items) in
+      let llty = emit_ty ty ctx in
+      let llval =
+        List.fold_left
+          (fun acc (idx, llval) -> Llvm.build_insertvalue acc llval idx "" ctx.llbdr)
+          (Llvm.undef llty)
+          (List.mapi (fun idx (_, _, llval) -> (idx, llval)) items)
+      in
+      (ty, llty, llval)
   | Ast.Assn (var, expr) ->
       let ty, llty, addr = addreval var ctx in
       let ety, _, llval = emit_expr expr ctx in
       if ty <> ety then error "assignment type mismatch";
       ignore (Llvm.build_store llval addr ctx.llbdr);
       (ty, llty, llval)
-  | Ast.Cast (ity, expr) ->
-      let ty = Ast.Int ity in
-      let sty, sllty, sllval = emit_expr expr ctx in
+  | Ast.Cast (sty, expr) ->
+      let ty = Ast.Scalar sty in
+      let srcty, srcllty, srcllval = emit_expr expr ctx in
       let llty = emit_ty ty ctx in
-      let sity =
-        match sty with Ast.Int sity -> sity | _ -> error "cast requires an integer operand"
+      let srcsty =
+        match srcty with
+        | Ast.Scalar srcsty -> srcsty
+        | _ -> error "cast requires an scalar operand"
       in
       let llval =
-        match (sity, ity) with
-        | Ast.Bool, Ast.Bool -> sllval
-        | Ast.Bool, _ -> Llvm.build_zext sllval llty "" ctx.llbdr
-        | _, Ast.Bool -> Llvm.build_icmp Llvm.Icmp.Ne sllval (Llvm.const_null sllty) "" ctx.llbdr
+        match (srcsty, sty) with
+        | Ast.Bool, Ast.Bool -> srcllval
+        | Ast.Bool, _ -> Llvm.build_zext srcllval llty "" ctx.llbdr
+        | _, Ast.Bool ->
+            Llvm.build_icmp Llvm.Icmp.Ne srcllval (Llvm.const_null srcllty) "" ctx.llbdr
         | _ -> (
-            let sbits = Llvm.integer_bitwidth sllty in
+            let sbits = Llvm.integer_bitwidth srcllty in
             let bits = Llvm.integer_bitwidth llty in
-            if sbits = bits then sllval
-            else if sbits > bits then Llvm.build_trunc sllval llty "" ctx.llbdr
+            if sbits = bits then srcllval
+            else if sbits > bits then Llvm.build_trunc srcllval llty "" ctx.llbdr
             else
-              match sity with
-              | Ast.Signed _ -> Llvm.build_sext sllval llty "" ctx.llbdr
-              | _ -> Llvm.build_zext sllval llty "" ctx.llbdr)
+              match srcsty with
+              | Ast.Int (_, true) -> Llvm.build_sext srcllval llty "" ctx.llbdr
+              | _ -> Llvm.build_zext srcllval llty "" ctx.llbdr)
       in
       (ty, llty, llval)
   | Ast.Unary (op, expr) -> (
       let ty, llty, llval = emit_expr expr ctx in
-      (match ty with Ast.Int _ -> () | _ -> error "unary operator requires integer operands");
+      (match ty with Ast.Scalar _ -> () | _ -> error "unary operator requires scalar operands");
       match op with
       | Ast.Not -> (ty, llty, Llvm.build_not llval "" ctx.llbdr)
       | Ast.LgNot ->
           let llval = Llvm.build_icmp Llvm.Icmp.Eq llval (Llvm.const_null llty) "" ctx.llbdr in
-          let ty = Ast.Int Ast.Bool in
+          let ty = Ast.Scalar Ast.Bool in
           (ty, emit_ty ty ctx, llval))
   | Ast.Binary (lhs, ((Ast.LgAnd | Ast.LgOr) as op), rhs) ->
       let lty, llty, lval = emit_expr lhs ctx in
-      (match lty with Ast.Int _ -> () | _ -> error "binary operator requires integer operands");
-      let bool_ty = Ast.Int Ast.Bool in
+      (match lty with Ast.Scalar _ -> () | _ -> error "binary operator requires scalar operands");
+      let bool_ty = Ast.Scalar Ast.Bool in
       let bool_llty = emit_ty bool_ty ctx in
       let llfn = Llvm.block_parent (Llvm.insertion_block ctx.llbdr) in
       let rhs_blk = Llvm.append_block ctx.llctx "" llfn in
@@ -185,11 +224,13 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
       let lty, llty, lval = emit_expr lhs ctx in
       let rty, _, rval = emit_expr rhs ctx in
       if lty <> rty then error "binary operand type mismatch";
-      let ity =
-        match lty with Ast.Int ity -> ity | _ -> error "binary operator requires integer operands"
+      let sty =
+        match lty with
+        | Ast.Scalar sty -> sty
+        | _ -> error "binary operator requires scalar operands"
       in
-      let signed = match ity with Ast.Signed _ -> true | _ -> false in
-      let bool_ty = Ast.Int Ast.Bool in
+      let signed = match sty with Ast.Int (_, true) -> true | _ -> false in
+      let bool_ty = Ast.Scalar Ast.Bool in
       let bool_llty = emit_ty bool_ty ctx in
       match op with
       | Ast.Div ->
@@ -244,7 +285,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
       match emit_call name args ctx with
       | Some resp -> resp
       | None -> error "void function used as a value")
-  | Ast.Id _ | Ast.Index _ | Ast.Member _ | Ast.Deref _ ->
+  | Ast.Id _ | Ast.MemArray _ | Ast.MemTuple _ | Ast.MemStruct _ | Ast.Deref _ ->
       let ty, llty, addr = addreval expr ctx in
       let llval = Llvm.build_load llty addr "" ctx.llbdr in
       (ty, llty, llval)

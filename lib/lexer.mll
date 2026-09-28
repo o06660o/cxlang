@@ -72,8 +72,8 @@ rule token = parse
   | eof { Parser.EOF }
   | whitespace+ { token lexbuf }
 
-  | 'i' (['0' - '9']+ as bits) { Parser.SIGNED_TY (int_of_string bits) }
-  | 'u' (['0' - '9']+ as bits) { Parser.UNSIGNED_TY (int_of_string bits) }
+  | 'i' (['0' - '9']+ as bits) { Parser.INT_TY (int_of_string bits, true) }
+  | 'u' (['0' - '9']+ as bits) { Parser.INT_TY (int_of_string bits, false) }
   | ['0' - '9']+ as literal { Parser.INT (int_of_string literal) }
   | (['0' - '9']+ '_' ('i' | 'u') ['0' - '9']+) as literal { Parser.CONST_INT literal }
 

@@ -1,0 +1,11 @@
+fn make_values() -> [i32; 3] {
+  return [1_i32, 2_i32, 3_i32];
+}
+
+fn sum_values(values: [i32; 3]) -> i32 {
+  return values[0_i32] + values[1_i32] + values[2_i32];
+}
+
+fn main() -> i32 {
+  return sum_values(make_values());
+}

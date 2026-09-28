@@ -1,0 +1,9 @@
+fn main() -> i32 {
+  auto record = { count: 8_i32, enabled: true, offset: 3_u8 };
+  record.count = record.count * 2_i32;
+  record.offset = record.offset + 1_u8;
+  if (record.enabled) {
+    return record.count + (i32)record.offset;
+  }
+  return 0_i32;
+}
