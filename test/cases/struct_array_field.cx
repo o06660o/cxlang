@@ -1,4 +1,4 @@
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto record = {values: [2_i32, 4_i32], flag: false};
   record.values[0_i32] = 5_i32;
   if (record.flag) {

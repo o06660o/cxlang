@@ -1,0 +1,6 @@
+auto test_entry = []() -> i32 {
+  auto identity = [](value: i32) -> i32 {
+    return value;
+  };
+  return identity();
+}

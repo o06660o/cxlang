@@ -1,11 +1,11 @@
-using Address = ptr;
-using Number = i32;
+using Address = ptr
+using Number = i32
 
-fn increment(address: Address) {
+auto increment = [](address: Address) {
   #deref(address, Number) = #deref(address, Number) + 1_i32;
 }
 
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto value = 41_i32;
   increment(#addrof(value));
   return value;

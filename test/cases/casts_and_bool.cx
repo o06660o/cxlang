@@ -1,4 +1,4 @@
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto small = #cast(i8, 255_i32);
   if ((#cast(i32, small) == (0_i32 - 1_i32)) &&
       !false && #cast(bool, 5_i32) && !#cast(bool, 0_i32)) {

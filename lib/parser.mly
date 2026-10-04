@@ -12,10 +12,8 @@
 %token BOOL     /* bool */
 %token BREAK    /* break */
 %token CONTINUE /* continue */
-%token EXTERN   /* extern */
 %token ELSE     /* else */
 %token FALSE    /* false */
-%token FN       /* fn */
 %token IF       /* if */
 %token LOOP     /* loop */
 %token PTR      /* ptr */
@@ -74,13 +72,12 @@
 %left PLUS DASH
 %left STAR SLASH PERC
 %right TILDE BANG
-%left LBRACKET DOT
+%left LPAREN LBRACKET DOT
 
 %start <Ast.prog> prog
 
 %%
 
-_block: LBRACE stmts=list(stmt) RBRACE { stmts }
 _pair_idty: id=ID COLON ty=ty { (id, ty) }
 _pair_idexpr: id=ID COLON expr=expr { (id, expr) }
 
@@ -91,6 +88,8 @@ ty:
   | LBRACE items=separated_nonempty_list(SEMI, ty) RBRACE { Ast.Tuple items }
   | LBRACE items=separated_nonempty_list(SEMI, _pair_idty) RBRACE { Ast.Struct items }
   | PTR { Ast.Ptr }
+  | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, ty) RPAREN rty=option(preceded(ARROW,ty))
+    { Ast.Func (items, rty) }
   | id=ID { Ast.Alias id }
 
 %inline uop:
@@ -124,39 +123,41 @@ expr:
   | literal=CONST_INT { Ast.NewInt literal }
   | value=CONST_CHAR { Ast.NewChar value }
   | bytes=CONST_STRING { Ast.NewString bytes }
-  | LBRACKET items=separated_list(COMMA, expr) RBRACKET { Ast.NewArray items }
+  | LBRACKET items=separated_nonempty_list(COMMA, expr) RBRACKET { Ast.NewArray items }
   | LBRACE items=separated_nonempty_list(COMMA, expr) RBRACE { Ast.NewTuple items }
   | LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE { Ast.NewStruct items }
-  | id=ID { Ast.Id id }
+  | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, _pair_idty) RPAREN
+    rty=option(preceded(ARROW,ty)) body=block { Ast.NewFunc (items, rty, body) }
   | var=expr EQ expr=expr { Ast.Assn (var, expr) }
   | op=uop expr=expr { Ast.Unary (op, expr) }
   | lhs=expr op=bop rhs=expr { Ast.Binary (lhs, op, rhs) }
+  | id=ID { Ast.Id id }
   | base=expr LBRACKET idx=expr RBRACKET { Ast.MemArray (base, idx) }
   | base=expr DOT loc=INT { Ast.MemTuple (base, loc) }
   | base=expr DOT loc=ID { Ast.MemStruct (base, loc) }
+  | expr=expr LPAREN args=separated_list(COMMA, expr) RPAREN { Ast.Call (expr, args) }
   | CAST LPAREN ty=ty COMMA expr=expr RPAREN { Ast.Cast (ty, expr) }
   | DEREF LPAREN ptr=expr COMMA ty=ty RPAREN { Ast.Deref (ptr, ty) }
   | ADDROF LPAREN expr=expr RPAREN { Ast.Addrof expr }
-  | id=ID LPAREN args=separated_list(COMMA, expr) RPAREN { Ast.Call (id, args) }
 
 stmt:
+  | decl=decl SEMI { Ast.Decl decl }
   | expr=expr SEMI { Ast.Expr expr }
-  | AUTO id=ID EQ expr=expr SEMI { Ast.Var (id, expr) }
-  | IF LPAREN cond=expr RPAREN then_stmts=_block else_stmts=option(preceded(ELSE,_block))
+  | IF LPAREN cond=expr RPAREN then_stmts=block else_stmts=option(preceded(ELSE,block))
     {
       let else_stmts = match else_stmts with Some stmts -> stmts | None -> [] in
       Ast.If (cond, then_stmts, else_stmts)
     }
-  | LOOP stmts=_block { Ast.Loop stmts }
+  | LOOP stmts=block { Ast.Loop stmts }
   | BREAK SEMI { Ast.Break }
   | CONTINUE SEMI { Ast.Continue }
   | RETURN expr=option(expr) SEMI { Ast.Return expr }
 
+block:
+  | LBRACE stmts=list(stmt) RBRACE { stmts }
+
 decl:
-  | USING id=ID EQ ty=ty SEMI { Ast.Type (id, ty) }
-  | FN id=ID LPAREN params=separated_list(COMMA,_pair_idty) RPAREN rty=option(preceded(ARROW,ty))
-  stmts=_block { Ast.Func (id, params, rty, stmts) }
-  | EXTERN FN id=ID LPAREN ptys=separated_list(COMMA,ty) RPAREN rty=option(preceded(ARROW,ty)) SEMI
-    { Ast.ExtFunc (id, ptys, rty) }
+  | AUTO id=ID EQ expr=expr { Ast.Var (id, expr) }
+  | USING id=ID EQ ty=ty { Ast.Type (id, ty) }
 
 prog: decls=list(decl) EOF { decls }

@@ -1,14 +1,14 @@
-fn empty(value: [u8; 0]) -> i32 {
+auto empty = [](value: [u8; 0]) -> i32 {
   return 1_i32;
 }
 
-fn is_utf8(value: [u8; 3]) -> bool {
+auto is_utf8 = [](value: [u8; 3]) -> bool {
   return value[0_i32] == 228_u8 &&
          value[1_i32] == 184_u8 &&
          value[2_i32] == 173_u8;
 }
 
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto text = "中";
   auto valid = is_utf8(text);
   text[0_i32] = 65_u8;

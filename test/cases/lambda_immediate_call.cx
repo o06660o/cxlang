@@ -1,0 +1,8 @@
+auto test_entry = []() -> i32 {
+  auto result = ([](value: i32) -> i32 {
+    return value * 3_i32;
+  })(7_i32);
+  return result + ([](left: i32, right: i32) -> i32 {
+    return left + right;
+  })(10_i32, 11_i32);
+}

@@ -1,0 +1,13 @@
+auto first = []() -> i32 {
+  return 20_i32;
+}
+
+auto second = []() -> i32 {
+  return 22_i32;
+}
+
+auto test_entry = []() -> i32 {
+  auto saved = first;
+  first = second;
+  return saved() + first();
+}

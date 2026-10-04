@@ -1,4 +1,4 @@
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto outer = 0_i32;
   auto count = 0_i32;
   loop {

@@ -1,0 +1,19 @@
+auto test_entry = []() -> i32 {
+  using Number = i32;
+  using Unary = [](Number) -> Number;
+  auto apply = [](callback: Unary, value: Number) -> Number {
+    return callback(value);
+  };
+  auto transform = [](value: Number) -> Number {
+    return value + 1_i32;
+  };
+  auto result = apply(transform, 20_i32);
+  if (true) {
+    using Number = u8;
+    auto transform = [](value: Number) -> Number {
+      return value + 2_u8;
+    };
+    result = result + #cast(i32, transform(18_u8));
+  }
+  return result + transform(0_i32);
+}

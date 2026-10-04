@@ -7,6 +7,7 @@ type ty =
   | Tuple of ty list
   | Struct of (id * ty) list
   | Ptr
+  | Func of ty list * ty option
   | Alias of id
 
 type uop = (* ~ *) Not | (* ! *) LgNot
@@ -49,30 +50,29 @@ type expr =
   | NewArray of expr list
   | NewTuple of expr list
   | NewStruct of (id * expr) list
-  | Id of id
+  | NewFunc of (id * ty) list * ty option * block
   | Assn of expr * expr
   | Unary of uop * expr
   | Binary of expr * bop * expr
+  | Id of id
   | MemArray of expr * expr
   | MemTuple of expr * int
   | MemStruct of expr * id
-  | Call of id * expr list
+  | Call of expr * expr list
   | Cast of ty * expr
   | Deref of expr * ty
   | Addrof of expr
 
-type stmt =
+and stmt =
+  | Decl of decl
   | Expr of expr
-  | Var of id * expr
-  | If of expr * stmt list * stmt list
-  | Loop of stmt list
+  | If of expr * block * block
+  | Loop of block
   | Break
   | Continue
   | Return of expr option
 
-type decl =
-  | Type of id * ty
-  | Func of id * (id * ty) list * ty option * stmt list
-  | ExtFunc of id * ty list * ty option
+and block = stmt list
+and decl = Var of id * expr | Type of id * ty
 
 type prog = decl list

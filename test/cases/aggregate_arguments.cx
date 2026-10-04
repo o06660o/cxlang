@@ -1,16 +1,16 @@
-fn make_pair() -> {i32; i32} {
+auto make_pair = []() -> {i32; i32} {
   return { 10_i32, 11_i32 };
 }
 
-fn sum_pair(value: {i32; i32}) -> i32 {
+auto sum_pair = [](value: {i32; i32}) -> i32 {
   return value.0 + value.1;
 }
 
-fn sum_record(value: {left: i32; right: i32}) -> i32 {
+auto sum_record = [](value: {left: i32; right: i32}) -> i32 {
   return value.left + value.right;
 }
 
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto pair = make_pair();
   return sum_pair(pair) + sum_record({left: 8_i32, right: 9_i32});
 }

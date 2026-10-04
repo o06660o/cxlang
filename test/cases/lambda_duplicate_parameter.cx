@@ -1,0 +1,6 @@
+auto test_entry = []() -> i32 {
+  auto invalid = [](value: i32, value: i32) -> i32 {
+    return value;
+  };
+  return invalid(20_i32, 22_i32);
+}

@@ -1,0 +1,11 @@
+auto test_entry = []() -> i32 {
+  auto functions = [
+    [](value: i32) -> i32 { return value + 1_i32; },
+    [](value: i32) -> i32 { return value * 2_i32; }
+  ];
+  auto pair = {functions[0_i32], functions[1_i32]};
+  auto record = {run: pair.0};
+  record.run = pair.1;
+  return functions[0_i32](3_i32) + functions[1_i32](4_i32) +
+         pair.0(5_i32) + pair.1(6_i32) + record.run(6_i32);
+}

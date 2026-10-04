@@ -66,19 +66,30 @@ def run_test(compiler: Path, case: Path, expected: int | None, output_dir: Path)
     compile_command = [str(compiler), "-o", str(object_file), str(case)]
     result = run_command(compile_command, cwd=output_dir)
     if expected is None:
-        if result.returncode != 0:
+        if result.returncode > 0:
             print(f"PASS {case.name} (rejected)")
             return True
-        print(f"FAIL {case.name}: expected compile rejection")
-        return False
+        if result.returncode == 0:
+            print(f"FAIL {case.name}: expected compile rejection")
+            return False
     if result.returncode != 0:
-        print(f"FAIL {case.name}: compile failed")
+        status = (
+            f"signal {-result.returncode}"
+            if result.returncode < 0
+            else f"exit {result.returncode}"
+        )
+        print(f"FAIL {case.name}: compile failed ({status})")
         print(f"  {display_command(compile_command)}")
         if result.stderr:
             print(result.stderr, end="")
         return False
 
-    link_command = ["cc", "-no-pie", str(object_file), "-o", str(executable)]
+    driver = case.with_suffix(".c")
+    if not driver.is_file():
+        driver = Path(__file__).resolve().with_name("entry.c")
+    link_command = [
+        "cc", "-no-pie", str(object_file), str(driver), "-o", str(executable)
+    ]
     result = run_command(link_command, cwd=output_dir)
     if result.returncode != 0:
         print(f"FAIL {case.name}: link failed")

@@ -1,4 +1,4 @@
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto value = {10_i32, 2_u8, true};
   value.0 = value.0 + 5_i32;
   value.1 = 4_u8;

@@ -1,0 +1,16 @@
+auto invoke = [](action: [](ptr), address: ptr) {
+  action(address);
+}
+
+auto test_entry = []() -> i32 {
+  auto value = 40_i32;
+  auto increment = [](address: ptr) {
+    #deref(address, i32) = #deref(address, i32) + 1_i32;
+  };
+  invoke(increment, #addrof(value));
+  ([](address: ptr) {
+    #deref(address, i32) = #deref(address, i32) + 1_i32;
+    return;
+  })(#addrof(value));
+  return value;
+}

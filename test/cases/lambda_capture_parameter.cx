@@ -1,0 +1,9 @@
+auto make_adder = [](value: i32) -> [](i32) -> i32 {
+  return [](increment: i32) -> i32 {
+    return value + increment;
+  };
+}
+
+auto test_entry = []() -> i32 {
+  return make_adder(40_i32)(2_i32);
+}

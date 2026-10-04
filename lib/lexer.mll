@@ -8,10 +8,8 @@ let reserved = Hashtbl.of_seq (List.to_seq [
   ("bool", Parser.BOOL);
   ("break", Parser.BREAK);
   ("continue", Parser.CONTINUE);
-  ("extern", Parser.EXTERN);
   ("else", Parser.ELSE);
   ("false", Parser.FALSE);
-  ("fn", Parser.FN);
   ("if", Parser.IF);
   ("loop", Parser.LOOP);
   ("ptr", Parser.PTR);

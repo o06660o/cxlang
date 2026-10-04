@@ -1,4 +1,4 @@
-fn main() -> i32 {
+auto test_entry = []() -> i32 {
   auto value = 17_i32;
   auto address = #addrof(value);
   #deref(address, i32) = 23_i32;

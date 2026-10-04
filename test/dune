@@ -2,8 +2,10 @@
  (alias runtest)
  (deps
   run.py
+  entry.c
   summary
   (glob_files cases/*.cx)
+  (glob_files cases/*.c)
   ../bin/cxcc.exe)
  (action
   (run python3 %{dep:run.py} %{exe:../bin/cxcc.exe})))

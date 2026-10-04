@@ -1,0 +1,7 @@
+auto test_entry = []() -> i32 {
+  auto action = []() {
+    return;
+  };
+  auto value = action();
+  return 0_i32;
+}
