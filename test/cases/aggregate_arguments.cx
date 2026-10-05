@@ -1,16 +1,26 @@
-auto make_pair = []() -> {i32; i32} {
-  return { 10_i32, 11_i32 };
+struct Pair {
+  first: i32,
+  second: i32
 }
 
-auto sum_pair = [](value: {i32; i32}) -> i32 {
-  return value.0 + value.1;
+struct Record {
+  left: i32,
+  right: i32
 }
 
-auto sum_record = [](value: {left: i32; right: i32}) -> i32 {
+auto make_pair = []() -> Pair {
+  return Pair { first: 10_i32, second: 11_i32 };
+}
+
+auto sum_pair = [](value: Pair) -> i32 {
+  return value.first + value.second;
+}
+
+auto sum_record = [](value: Record) -> i32 {
   return value.left + value.right;
 }
 
 auto test_entry = []() -> i32 {
   auto pair = make_pair();
-  return sum_pair(pair) + sum_record({left: 8_i32, right: 9_i32});
+  return sum_pair(pair) + sum_record(Record { left: 8_i32, right: 9_i32 });
 }

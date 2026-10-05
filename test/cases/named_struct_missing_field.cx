@@ -1,0 +1,9 @@
+struct Point {
+  x: i32,
+  y: i32
+}
+
+auto test_entry = []() -> i32 {
+  auto point = Point { x: 1_i32 };
+  return point.x;
+}

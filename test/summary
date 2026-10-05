@@ -50,6 +50,13 @@ global_function_export.cx 42
 global_function_assignment_type.cx reject
 global_value_initializer.cx reject
 
+# Named struct type errors.
+named_struct_type_mismatch.cx reject
+named_struct_missing_field.cx reject
+named_struct_unknown_field.cx reject
+named_struct_recursive.cx reject
+named_struct_forward.cx reject
+
 # Lambda rejection cases.
 lambda_capture_local.cx reject
 lambda_capture_parameter.cx reject

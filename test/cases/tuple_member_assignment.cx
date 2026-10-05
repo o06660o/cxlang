@@ -1,9 +1,15 @@
+struct Value {
+  first: i32,
+  second: u8,
+  enabled: bool
+}
+
 auto test_entry = []() -> i32 {
-  auto value = {10_i32, 2_u8, true};
-  value.0 = value.0 + 5_i32;
-  value.1 = 4_u8;
-  if (value.2) {
-    return value.0 + #cast(i32, value.1);
+  auto value = Value { first: 10_i32, second: 2_u8, enabled: true };
+  value.first = value.first + 5_i32;
+  value.second = 4_u8;
+  if (value.enabled) {
+    return value.first + #cast(i32, value.second);
   }
   return 0_i32;
 }

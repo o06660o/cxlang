@@ -1,5 +1,10 @@
+struct Pair {
+  first: i32,
+  second: i32
+}
+
 auto test_entry = []() -> i32 {
-  auto values = [{1_i32, 2_i32}, {3_i32, 4_i32}];
-  values[0_i32].1 = 7_i32;
-  return values[0_i32].0 + values[0_i32].1 + values[1_i32].0 + values[1_i32].1;
+  auto values = [Pair { first: 1_i32, second: 2_i32 }, Pair { first: 3_i32, second: 4_i32 }];
+  values[0_i32].second = 7_i32;
+  return values[0_i32].first + values[0_i32].second + values[1_i32].first + values[1_i32].second;
 }

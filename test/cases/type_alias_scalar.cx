@@ -1,16 +1,12 @@
-using Small = i8
-using Wide = i32
-using Result = Wide
-
-auto widen = [](value: Small) -> Result {
-  return #cast(Result, value);
+auto widen = [](value: i8) -> i32 {
+  return #cast(i32, value);
 }
 
-auto bump = [](value: Result) -> Result {
+auto bump = [](value: i32) -> i32 {
   return value + 1_i32;
 }
 
 auto test_entry = []() -> i32 {
-  auto signed = #cast(Small, 255_u8);
+  auto signed = #cast(i8, 255_u8);
   return bump(widen(signed)) + bump(0_i32) + 41_i32;
 }

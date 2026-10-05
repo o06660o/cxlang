@@ -1,8 +1,5 @@
-using Address = ptr
-using Number = i32
-
-auto increment = [](address: Address) {
-  #deref(address, Number) = #deref(address, Number) + 1_i32;
+auto increment = [](address: ptr) {
+  #deref(address, i32) = #deref(address, i32) + 1_i32;
 }
 
 auto test_entry = []() -> i32 {

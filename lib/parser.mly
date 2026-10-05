@@ -18,8 +18,8 @@
 %token LOOP     /* loop */
 %token PTR      /* ptr */
 %token RETURN   /* return */
+%token STRUCT   /* struct */
 %token TRUE     /* true */
-%token USING    /* using */
 
 /* Symbols */
 %token LPAREN   /* ( */
@@ -85,12 +85,10 @@ ty:
   | BOOL { Ast.Bool }
   | ty=INT_TY { Ast.Int ty }
   | LBRACKET ty=ty SEMI cnt=INT RBRACKET { Ast.Array (ty, cnt) }
-  | LBRACE items=separated_nonempty_list(SEMI, ty) RBRACE { Ast.Tuple items }
-  | LBRACE items=separated_nonempty_list(SEMI, _pair_idty) RBRACE { Ast.Struct items }
   | PTR { Ast.Ptr }
   | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, ty) RPAREN rty=option(preceded(ARROW,ty))
     { Ast.Func (items, rty) }
-  | id=ID { Ast.Alias id }
+  | id=ID { Ast.Named id }
 
 %inline uop:
   | TILDE { Ast.Not }
@@ -124,8 +122,8 @@ expr:
   | value=CONST_CHAR { Ast.NewChar value }
   | bytes=CONST_STRING { Ast.NewString bytes }
   | LBRACKET items=separated_nonempty_list(COMMA, expr) RBRACKET { Ast.NewArray items }
-  | LBRACE items=separated_nonempty_list(COMMA, expr) RBRACE { Ast.NewTuple items }
-  | LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE { Ast.NewStruct items }
+  | id=ID LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE
+    { Ast.NewStruct (id, items) }
   | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, _pair_idty) RPAREN
     rty=option(preceded(ARROW,ty)) body=block { Ast.NewFunc (items, rty, body) }
   | var=expr EQ expr=expr { Ast.Assn (var, expr) }
@@ -133,7 +131,6 @@ expr:
   | lhs=expr op=bop rhs=expr { Ast.Binary (lhs, op, rhs) }
   | id=ID { Ast.Id id }
   | base=expr LBRACKET idx=expr RBRACKET { Ast.MemArray (base, idx) }
-  | base=expr DOT loc=INT { Ast.MemTuple (base, loc) }
   | base=expr DOT loc=ID { Ast.MemStruct (base, loc) }
   | expr=expr LPAREN args=separated_list(COMMA, expr) RPAREN { Ast.Call (expr, args) }
   | CAST LPAREN ty=ty COMMA expr=expr RPAREN { Ast.Cast (ty, expr) }
@@ -141,7 +138,7 @@ expr:
   | ADDROF LPAREN expr=expr RPAREN { Ast.Addrof expr }
 
 stmt:
-  | decl=decl SEMI { Ast.Decl decl }
+  | AUTO id=ID EQ expr=expr SEMI { Ast.Var (id, expr) }
   | expr=expr SEMI { Ast.Expr expr }
   | IF LPAREN cond=expr RPAREN then_stmts=block else_stmts=option(preceded(ELSE,block))
     {
@@ -156,8 +153,9 @@ stmt:
 block:
   | LBRACE stmts=list(stmt) RBRACE { stmts }
 
-decl:
-  | AUTO id=ID EQ expr=expr { Ast.Var (id, expr) }
-  | USING id=ID EQ ty=ty { Ast.Type (id, ty) }
+gdecl:
+  | AUTO id=ID EQ expr=expr { Ast.Global (id, expr) }
+  | STRUCT id=ID LBRACE fields=separated_nonempty_list(COMMA, _pair_idty) RBRACE
+    { Ast.Struct (id, fields) }
 
-prog: decls=list(decl) EOF { decls }
+prog: decls=list(gdecl) EOF { decls }

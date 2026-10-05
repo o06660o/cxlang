@@ -14,8 +14,8 @@ let reserved = Hashtbl.of_seq (List.to_seq [
   ("loop", Parser.LOOP);
   ("ptr", Parser.PTR);
   ("return", Parser.RETURN);
+  ("struct", Parser.STRUCT);
   ("true", Parser.TRUE);
-  ("using", Parser.USING);
   ("(", Parser.LPAREN);
   (")", Parser.RPAREN);
   ("[", Parser.LBRACKET);

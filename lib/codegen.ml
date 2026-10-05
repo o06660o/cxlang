@@ -8,7 +8,7 @@ type ctx = {
   llctx : Llvm.llcontext;
   llmod : Llvm.llmodule;
   llbdr : Llvm.llbuilder;
-  mutable types : (Ast.id, Ast.ty) Hashtbl.t list;
+  types : (Ast.id, (Ast.id * Ast.ty) list * Llvm.lltype) Hashtbl.t;
   mutable vars : (Ast.id, Ast.ty * Llvm.lltype * Llvm.llvalue) Hashtbl.t list;
   mutable break_blks : Llvm.llbasicblock list;
   mutable continue_blks : Llvm.llbasicblock list;
@@ -21,7 +21,7 @@ let ctx_create (llctx : Llvm.llcontext) : ctx =
     llctx;
     llmod;
     llbdr;
-    types = [ Hashtbl.create 16 ];
+    types = Hashtbl.create 16;
     vars = [ Hashtbl.create 16 ];
     break_blks = [];
     continue_blks = [];
@@ -29,34 +29,17 @@ let ctx_create (llctx : Llvm.llcontext) : ctx =
 
 (**************************************************************************************************)
 
-let resolve_ty (ty : Ast.ty) (ctx : ctx) : Ast.ty =
-  let rec loop (vis : string list) (ty : Ast.ty) : Ast.ty =
-    match ty with
-    | Ast.Alias id -> (
-        if List.mem id vis then error "cyclic type alias \"%s\"" id;
-        match List.find_map (fun types -> Hashtbl.find_opt types id) ctx.types with
-        | Some ty -> loop (id :: vis) ty
-        | None -> error "undefined type alias \"%s\"" id)
-    | Ast.Array (ty, cnt) -> Ast.Array (loop vis ty, cnt)
-    | Ast.Tuple items -> Ast.Tuple (List.map (fun ty -> loop vis ty) items)
-    | Ast.Struct items -> Ast.Struct (List.map (fun (id, ty) -> (id, loop vis ty)) items)
-    | Ast.Func (ptys, rty) -> Ast.Func (List.map (loop vis) ptys, Option.map (loop vis) rty)
-    | _ -> ty
-  in
-  loop [] ty
-
 let rec emit_ty (ty : Ast.ty) (ctx : ctx) : Llvm.lltype =
   match ty with
   | Ast.Bool -> Llvm.i1_type ctx.llctx
   | Ast.Int (bits, _) -> Llvm.integer_type ctx.llctx bits
   | Ast.Array (ty, cnt) -> Llvm.array_type (emit_ty ty ctx) cnt
-  | Ast.Tuple items ->
-      Llvm.struct_type ctx.llctx (Array.of_list (List.map (fun ty -> emit_ty ty ctx) items))
-  | Ast.Struct items ->
-      Llvm.struct_type ctx.llctx (Array.of_list (List.map (fun (_, ty) -> emit_ty ty ctx) items))
   | Ast.Ptr -> Llvm.pointer_type ctx.llctx
   | Ast.Func _ -> Llvm.pointer_type ctx.llctx
-  | Ast.Alias id -> emit_ty (resolve_ty ty ctx) ctx
+  | Ast.Named id -> (
+      match Hashtbl.find_opt ctx.types id with
+      | Some (_, llty) -> llty
+      | None -> error "undefined struct type \"%s\"" id)
 
 let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
   let rec addreval (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.llvalue =
@@ -67,25 +50,22 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
         | None -> error "undefined variable \"%s\"" id)
     | Ast.MemArray (base, idx) -> (
         let bty, bllty, baddr = addreval base ctx in
-        match resolve_ty bty ctx with
+        match bty with
         | Ast.Array (ety, _) ->
             let _, _, idx = emit_expr idx ctx in
             let zero = Llvm.const_int (Llvm.i32_type ctx.llctx) 0 in
             let addr = Llvm.build_gep bllty baddr [| zero; idx |] "" ctx.llbdr in
             (ety, emit_ty ety ctx, addr)
         | _ -> error "indexing requires an array")
-    | Ast.MemTuple (base, loc) -> (
-        let bty, bllty, baddr = addreval base ctx in
-        match resolve_ty bty ctx with
-        | Ast.Tuple items ->
-            let ity = List.nth items loc in
-            let addr = Llvm.build_struct_gep bllty baddr loc "" ctx.llbdr in
-            (ity, emit_ty ity ctx, addr)
-        | _ -> error "member access requires an aggregate")
     | Ast.MemStruct (base, loc) -> (
         let bty, bllty, baddr = addreval base ctx in
-        match resolve_ty bty ctx with
-        | Ast.Struct items -> (
+        match bty with
+        | Ast.Named id -> (
+            let items =
+              match Hashtbl.find_opt ctx.types id with
+              | Some (fields, _) -> fields
+              | None -> error "undefined struct type \"%s\"" id
+            in
             match
               List.filter
                 (fun (_, name, _) -> name = loc)
@@ -99,7 +79,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
         | _ -> error "member access requires a struct")
     | Ast.Deref (ptr, ty) -> (
         let pty, _, pllval = emit_expr ptr ctx in
-        match resolve_ty pty ctx with
+        match pty with
         | Ast.Ptr -> (ty, emit_ty ty ctx, pllval)
         | _ -> error "dereference requires a pointer")
     | _ -> error "expression is not an lvalue"
@@ -142,9 +122,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
         | [] -> error "new empty array not allowed"
         | (ty, _, _) :: tl ->
             List.iter
-              (fun (ity, _, _) ->
-                if resolve_ty ity ctx <> resolve_ty ty ctx then
-                  error "array constant has mixed element types")
+              (fun (ity, _, _) -> if ity <> ty then error "array constant has mixed element types")
               tl;
             ty
       in
@@ -157,37 +135,42 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
           (Llvm.undef llty) elems
       in
       (ty, llty, llval)
-  | Ast.NewTuple exprs ->
-      let items = List.map (fun expr -> emit_expr expr ctx) exprs in
-      let ty = Ast.Tuple (List.map (fun (ty, _, _) -> ty) items) in
-      let llty = emit_ty ty ctx in
-      let indexed = List.mapi (fun index (_, _, value) -> (index, value)) items in
+  | Ast.NewStruct (id, items) ->
+      let fields, llty =
+        match Hashtbl.find_opt ctx.types id with
+        | Some info -> info
+        | None -> error "undefined struct type \"%s\"" id
+      in
+      let values = List.map (fun (name, expr) -> (name, emit_expr expr ctx)) items in
+      let field_names = List.map fst fields in
+      List.iter
+        (fun (name, _) ->
+          if not (List.mem name field_names) then error "struct \"%s\" has no field \"%s\"" id name;
+          if List.length (List.filter (fun (other, _) -> other = name) items) > 1 then
+            error "duplicate initializer for field \"%s\"" name)
+        items;
+      List.iter
+        (fun (name, _) ->
+          if not (List.exists (fun (other, _) -> other = name) items) then
+            error "missing initializer for field \"%s\"" name)
+        fields;
+      let indexed_values =
+        List.mapi
+          (fun index (name, expected_ty) ->
+            let _, (actual_ty, _, llval) = List.find (fun (other, _) -> other = name) values in
+            if expected_ty <> actual_ty then error "initializer type mismatch for field \"%s\"" name;
+            (index, llval))
+          fields
+      in
       let llval =
         List.fold_left
-          (fun tuple (index, value) -> Llvm.build_insertvalue tuple value index "" ctx.llbdr)
-          (Llvm.undef llty) indexed
+          (fun value (index, field_value) ->
+            Llvm.build_insertvalue value field_value index "" ctx.llbdr)
+          (Llvm.undef llty) indexed_values
       in
-      (ty, llty, llval)
-  | Ast.NewStruct items ->
-      let items =
-        List.map
-          (fun (name, expr) ->
-            let ty, _, llval = emit_expr expr ctx in
-            (name, ty, llval))
-          items
-      in
-      let ty = Ast.Struct (List.map (fun (name, ty, _) -> (name, ty)) items) in
-      let llty = emit_ty ty ctx in
-      let llval =
-        List.fold_left
-          (fun acc (idx, llval) -> Llvm.build_insertvalue acc llval idx "" ctx.llbdr)
-          (Llvm.undef llty)
-          (List.mapi (fun idx (_, _, llval) -> (idx, llval)) items)
-      in
-      (ty, llty, llval)
+      (Ast.Named id, llty, llval)
   | Ast.NewFunc (params, rty, body) ->
-      let ptys = List.map (fun (_, ty) -> resolve_ty ty ctx) params in
-      let rty = Option.map (fun ty -> resolve_ty ty ctx) rty in
+      let ptys = List.map snd params in
       let ty = Ast.Func (ptys, rty) in
       let llptys = Array.of_list (List.map (fun ty -> emit_ty ty ctx) ptys) in
       let llrty = match rty with None -> Llvm.void_type ctx.llctx | Some ty -> emit_ty ty ctx in
@@ -228,12 +211,12 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
   | Ast.Assn (var, expr) ->
       let ty, llty, addr = addreval var ctx in
       let ety, _, llval = emit_expr expr ctx in
-      if resolve_ty ty ctx <> resolve_ty ety ctx then error "assignment type mismatch";
+      if ty <> ety then error "assignment type mismatch";
       ignore (Llvm.build_store llval addr ctx.llbdr);
       (ty, llty, llval)
   | Ast.Unary (op, expr) -> (
       let ty, llty, llval = emit_expr expr ctx in
-      (match resolve_ty ty ctx with
+      (match ty with
       | Ast.Bool | Ast.Int _ -> ()
       | _ -> error "unary operator requires scalar operands");
       match op with
@@ -244,7 +227,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
           (ty, emit_ty ty ctx, llval))
   | Ast.Binary (lhs, ((Ast.LgAnd | Ast.LgOr) as op), rhs) ->
       let lty, llty, lval = emit_expr lhs ctx in
-      (match resolve_ty lty ctx with
+      (match lty with
       | Ast.Bool | Ast.Int _ -> ()
       | _ -> error "binary operator requires scalar operands");
       let bool_ty = Ast.Bool in
@@ -265,7 +248,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
 
       Llvm.position_at_end rhs_blk ctx.llbdr;
       let rty, rllty, rval = emit_expr rhs ctx in
-      if resolve_ty lty ctx <> resolve_ty rty ctx then error "binary operand type mismatch";
+      if lty <> rty then error "binary operand type mismatch";
       let rcond = Llvm.build_icmp Llvm.Icmp.Ne rval (Llvm.const_null rllty) "" ctx.llbdr in
       let rhs_end = Llvm.insertion_block ctx.llbdr in
       ignore (Llvm.build_br join_blk ctx.llbdr);
@@ -276,9 +259,9 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
   | Ast.Binary (lhs, op, rhs) -> (
       let lty, llty, lval = emit_expr lhs ctx in
       let rty, _, rval = emit_expr rhs ctx in
-      if resolve_ty lty ctx <> resolve_ty rty ctx then error "binary operand type mismatch";
+      if lty <> rty then error "binary operand type mismatch";
       let sty =
-        match resolve_ty lty ctx with
+        match lty with
         | (Ast.Bool | Ast.Int _) as sty -> sty
         | _ -> error "binary operator requires scalar operands"
       in
@@ -333,12 +316,12 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
   | Ast.Cast (ty, expr) ->
       let srcty, srcllty, srcllval = emit_expr expr ctx in
       let srcsty =
-        match resolve_ty srcty ctx with
+        match srcty with
         | (Ast.Bool | Ast.Int _) as sty -> sty
         | _ -> error "cast requires a scalar operand"
       in
       let sty =
-        match resolve_ty ty ctx with
+        match ty with
         | (Ast.Bool | Ast.Int _) as sty -> sty
         | _ -> error "cast requires a scalar target"
       in
@@ -367,7 +350,7 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
       match emit_call expr args ctx with
       | Some resp -> resp
       | None -> error "void function used as a value")
-  | Ast.Id _ | Ast.MemArray _ | Ast.MemTuple _ | Ast.MemStruct _ | Ast.Deref _ ->
+  | Ast.Id _ | Ast.MemArray _ | Ast.MemStruct _ | Ast.Deref _ ->
       let ty, llty, addr = addreval expr ctx in
       let llval = Llvm.build_load llty addr "" ctx.llbdr in
       (ty, llty, llval)
@@ -376,9 +359,7 @@ and emit_call (expr : Ast.expr) (args : Ast.expr list) (ctx : ctx) :
     (Ast.ty * Llvm.lltype * Llvm.llvalue) option =
   let fty, _, llfn = emit_expr expr ctx in
   let ptys, rty =
-    match resolve_ty fty ctx with
-    | Ast.Func (ptys, rty) -> (ptys, rty)
-    | _ -> error "call requires a function"
+    match fty with Ast.Func (ptys, rty) -> (ptys, rty) | _ -> error "call requires a function"
   in
   if List.length ptys <> List.length args then error "argument count mismatch";
   let llargs =
@@ -387,7 +368,7 @@ and emit_call (expr : Ast.expr) (args : Ast.expr list) (ctx : ctx) :
          (List.fold_left2
             (fun acc pty arg ->
               let aty, _, llarg = emit_expr arg ctx in
-              if resolve_ty aty ctx <> pty then error "argument type mismatch";
+              if aty <> pty then error "argument type mismatch";
               llarg :: acc)
             [] ptys args))
   in
@@ -399,8 +380,17 @@ and emit_call (expr : Ast.expr) (args : Ast.expr list) (ctx : ctx) :
 
 and emit_stmt (stmt : Ast.stmt) (ctx : ctx) : bool =
   match stmt with
-  | Ast.Decl decl ->
-      emit_decl decl ctx;
+  | Ast.Var (id, expr) ->
+      let vars =
+        match ctx.vars with
+        | vars :: _ -> vars
+        | [] -> error "internal: unexpected empty `ctx.vars`"
+      in
+      if Hashtbl.mem vars id then error "duplicate variable declaration \"%s\"" id;
+      let ty, llty, llval = emit_expr expr ctx in
+      let addr = Llvm.build_alloca llty id ctx.llbdr in
+      ignore (Llvm.build_store llval addr ctx.llbdr);
+      Hashtbl.add vars id (ty, llty, addr);
       false
   | Ast.Expr (Ast.Call (expr, args)) ->
       ignore (emit_call expr args ctx);
@@ -474,47 +464,45 @@ and emit_stmt (stmt : Ast.stmt) (ctx : ctx) : bool =
 
 and emit_block (block : Ast.block) (ctx : ctx) : bool =
   ctx.vars <- Hashtbl.create 16 :: ctx.vars;
-  ctx.types <- Hashtbl.create 16 :: ctx.types;
   let terminated = List.exists (fun stmt -> emit_stmt stmt ctx) block in
-  (match ctx.types with
-  | [] -> error "internal: unexpected empty `ctx.types`"
-  | hd :: tl -> ctx.types <- tl);
   (match ctx.vars with
   | [] -> error "internal: unexpected empty `ctx.vars`"
   | hd :: tl -> ctx.vars <- tl);
   terminated
 
-and emit_decl (decl : Ast.decl) (ctx : ctx) : unit =
-  match decl with
-  | Ast.Var (id, expr) ->
-      let vars, is_global =
+let emit_gdecl (gdecl : Ast.gdecl) (ctx : ctx) : unit =
+  match gdecl with
+  | Ast.Global (id, expr) ->
+      let vars =
         match ctx.vars with
-        | [ vars ] -> (vars, true)
-        | vars :: _ -> (vars, false)
-        | [] -> error "internal: unexpected empty `ctx.vars`"
+        | [ vars ] -> vars
+        | _ -> error "internal: global declaration outside module scope"
       in
       if Hashtbl.mem vars id then error "duplicate variable declaration \"%s\"" id;
-      (if is_global then
-         match expr with
-         | Ast.NewFunc _ -> ()
-         | _ -> error "global declaration \"%s\" requires a lambda" id);
+      (match expr with
+      | Ast.NewFunc _ -> ()
+      | _ -> error "global declaration \"%s\" requires a lambda" id);
       let ty, llty, llval = emit_expr expr ctx in
-      let addr =
-        if is_global then Llvm.define_global id llval ctx.llmod
-        else
-          let addr = Llvm.build_alloca llty id ctx.llbdr in
-          ignore (Llvm.build_store llval addr ctx.llbdr);
-          addr
+      let addr = Llvm.define_global id llval ctx.llmod in
+      Hashtbl.add vars id (ty, llty, addr)
+  | Ast.Struct (id, fields) ->
+      if Hashtbl.mem ctx.types id then error "duplicate struct declaration \"%s\"" id;
+      let field_names = List.map fst fields in
+      if List.length (List.sort_uniq String.compare field_names) <> List.length field_names then
+        error "duplicate field in struct \"%s\"" id;
+      let rec contains_self = function
+        | Ast.Array (ty, _) -> contains_self ty
+        | Ast.Named name -> name = id
+        | Ast.Bool | Ast.Int _ | Ast.Ptr | Ast.Func _ -> false
       in
-      Hashtbl.add vars id (resolve_ty ty ctx, llty, addr)
-  | Ast.Type (id, ty) -> (
-      match ctx.types with
-      | types :: _ ->
-          if Hashtbl.mem types id then error "duplicate type declaration \"%s\"" id;
-          Hashtbl.add types id ty
-      | [] -> error "internal: unexpected empty `ctx.types`")
+      if List.exists (fun (_, ty) -> contains_self ty) fields then
+        error "recursive struct definition involving \"%s\"" id;
+      let llty = Llvm.named_struct_type ctx.llctx id in
+      Hashtbl.add ctx.types id (fields, llty);
+      let llfields = Array.of_list (List.map (fun (_, ty) -> emit_ty ty ctx) fields) in
+      Llvm.struct_set_body llty llfields false
 
 let codegen (prog : Ast.prog) (llctx : Llvm.llcontext) : Llvm.llmodule =
   let ctx = ctx_create llctx in
-  List.iter (fun decl -> emit_decl decl ctx) prog;
+  List.iter (fun gdecl -> emit_gdecl gdecl ctx) prog;
   ctx.llmod

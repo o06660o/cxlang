@@ -1,0 +1,15 @@
+struct Left {
+  value: i32
+}
+
+struct Right {
+  value: i32
+}
+
+auto read = [](value: Left) -> i32 {
+  return value.value;
+}
+
+auto test_entry = []() -> i32 {
+  return read(Right { value: 1_i32 });
+}
