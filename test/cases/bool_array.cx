@@ -1,4 +1,4 @@
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto flags = [false, true, false];
   flags[0_i32] = true;
   if (flags[0_i32] && flags[1_i32] && !flags[2_i32]) {

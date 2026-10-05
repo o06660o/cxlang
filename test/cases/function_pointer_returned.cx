@@ -1,0 +1,12 @@
+fn twice(value: i32) -> i32 {
+  return value * 2_i32;
+}
+
+fn make_twice() -> fn(i32) -> i32 {
+  return twice;
+}
+
+fn test_entry() -> i32 {
+  auto twice = make_twice();
+  return twice(6_i32) + make_twice()(15_i32);
+}

@@ -1,7 +1,0 @@
-auto test_entry = []() -> i32 {
-  auto value = 42_i32;
-  auto read = []() -> i32 {
-    return value;
-  };
-  return read();
-}

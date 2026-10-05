@@ -1,8 +1,8 @@
-auto factorial = [](value: i32) -> i32 {
+fn factorial(value: i32) -> i32 {
   if (value <= 1_i32) { return 1_i32; }
   return value * factorial(value - 1_i32);
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   return factorial(5_i32);
 }

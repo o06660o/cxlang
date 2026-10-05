@@ -4,7 +4,7 @@ struct Record {
   third: u8
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto record = Record { third: 9_u8, flag: false, first: 7_i32 };
   record.first = 5_i32;
   if (record.flag) { return 0_i32; }

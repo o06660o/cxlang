@@ -1,0 +1,15 @@
+fn increment(value: i32) -> i32 {
+  return value + 1_i32;
+}
+
+fn apply(callback: fn(i32) -> i32, value: i32) -> i32 {
+  return callback(value);
+}
+
+fn twice(value: i32) -> i32 {
+  return increment(value * 2_i32);
+}
+
+fn test_entry() -> i32 {
+  return apply(increment, 20_i32) + apply(twice, 10_i32);
+}

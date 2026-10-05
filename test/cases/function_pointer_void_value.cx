@@ -1,0 +1,8 @@
+fn action() {
+  return;
+}
+
+fn test_entry() -> i32 {
+  auto value = action();
+  return 0_i32;
+}

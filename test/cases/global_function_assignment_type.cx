@@ -1,12 +1,12 @@
-auto first = []() -> i32 {
+fn first() -> i32 {
   return 1_i32;
 }
 
-auto second = []() -> u32 {
+fn second() -> u32 {
   return 42_u32;
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   first = second;
   return first();
 }

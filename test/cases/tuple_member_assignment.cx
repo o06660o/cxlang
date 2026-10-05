@@ -4,7 +4,7 @@ struct Value {
   enabled: bool
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto value = Value { first: 10_i32, second: 2_u8, enabled: true };
   value.first = value.first + 5_i32;
   value.second = 4_u8;

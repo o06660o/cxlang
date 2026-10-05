@@ -1,0 +1,11 @@
+fn apply(callback: fn(i32) -> i32, value: i32) -> i32 {
+  return callback(value);
+}
+
+fn unsigned(value: i32) -> u32 {
+  return #cast(u32, value);
+}
+
+fn test_entry() -> i32 {
+  return apply(unsigned, 42_i32);
+}

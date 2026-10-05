@@ -1,0 +1,19 @@
+fn invoke(action: fn(ptr), address: ptr) {
+  action(address);
+}
+
+fn increment(address: ptr) {
+  #deref(address, i32) = #deref(address, i32) + 1_i32;
+}
+
+fn increment_again(address: ptr) {
+  #deref(address, i32) = #deref(address, i32) + 1_i32;
+  return;
+}
+
+fn test_entry() -> i32 {
+  auto value = 40_i32;
+  invoke(increment, #addrof(value));
+  increment_again(#addrof(value));
+  return value;
+}

@@ -1,4 +1,4 @@
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto index = 0_i32;
   auto total = 0_i32;
   loop {

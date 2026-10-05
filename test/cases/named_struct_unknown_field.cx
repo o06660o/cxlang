@@ -2,7 +2,7 @@ struct Point {
   x: i32
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto point = Point { x: 1_i32, y: 2_i32 };
   return point.x;
 }

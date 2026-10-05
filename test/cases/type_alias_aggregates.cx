@@ -3,12 +3,12 @@ struct Record {
   right: i32
 }
 
-auto sum = [](values: [Record; 2]) -> i32 {
+fn sum(values: [Record; 2]) -> i32 {
   return values[0_i32].left + values[0_i32].right +
          values[1_i32].left + values[1_i32].right;
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto values = [Record { left: 2_i32, right: 3_i32 }, Record { left: 5_i32, right: 7_i32 }];
   values[1_i32].right = 11_i32;
   return sum(values);

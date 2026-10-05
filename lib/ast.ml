@@ -47,7 +47,6 @@ type expr =
   | NewString of string
   | NewArray of expr list
   | NewStruct of id * (id * expr) list
-  | NewFunc of (id * ty) list * ty option * block
   | Assn of expr * expr
   | Unary of uop * expr
   | Binary of expr * bop * expr
@@ -70,5 +69,5 @@ and stmt =
 
 and block = stmt list
 
-type gdecl = Global of id * expr | Struct of id * (id * ty) list
+type gdecl = Fn of id * (id * ty) list * ty option * block | Struct of id * (id * ty) list
 type prog = gdecl list

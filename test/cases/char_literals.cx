@@ -1,4 +1,4 @@
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto chars = ['\\', '\'', '\"', ' ', '\n', '\r', '\t'];
   auto text = "it\'s";
   auto sum = #cast(i32, chars[0_i32]) + #cast(i32, chars[1_i32]) +

@@ -17,7 +17,7 @@ nested_arrays.cx 9
 aggregate_member.cx 14
 pointer_deref.cx 23
 function_calls.cx 17
-recursive_factorial.cx reject
+recursive_factorial.cx 120
 tuple_member_assignment.cx 19
 struct_member_assignment.cx 20
 nested_aggregates.cx 18
@@ -34,14 +34,13 @@ string_utf8_empty.cx 1
 char_literals.cx 42
 char_out_of_range.cx reject
 
-# Lambda values and calls.
-lambda_local_values.cx 42
-lambda_immediate_call.cx 42
-lambda_higher_order.cx 42
-lambda_returned.cx 42
-lambda_aggregates.cx 42
-lambda_void_call.cx 42
-lambda_type_scope.cx 42
+# Function pointer values and calls.
+function_pointer_local_values.cx 42
+function_pointer_higher_order.cx 42
+function_pointer_returned.cx 42
+function_pointer_aggregates.cx 42
+function_pointer_void_call.cx 42
+function_pointer_type_scope.cx 42
 
 # Writable global function bindings and their C interface.
 global_function_assignment.cx 42
@@ -57,11 +56,9 @@ named_struct_unknown_field.cx reject
 named_struct_recursive.cx reject
 named_struct_forward.cx reject
 
-# Lambda rejection cases.
-lambda_capture_local.cx reject
-lambda_capture_parameter.cx reject
-lambda_argument_count.cx reject
-lambda_argument_type.cx reject
-lambda_signature_mismatch.cx reject
-lambda_duplicate_parameter.cx reject
-lambda_void_value.cx reject
+# Function rejection cases.
+function_pointer_argument_count.cx reject
+function_pointer_argument_type.cx reject
+function_pointer_signature_mismatch.cx reject
+function_pointer_duplicate_parameter.cx reject
+function_pointer_void_value.cx reject

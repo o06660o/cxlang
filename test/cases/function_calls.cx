@@ -1,16 +1,16 @@
-auto twice = [](value: i32) -> i32 {
+fn twice(value: i32) -> i32 {
   return value + value;
 }
 
-auto bump = [](address: ptr) {
+fn bump(address: ptr) {
   #deref(address, i32) = #deref(address, i32) + 1_i32;
 }
 
-auto add = [](left: i32, right: i32) -> i32 {
+fn add(left: i32, right: i32) -> i32 {
   return left + right;
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto value = 6_i32;
   bump(#addrof(value));
   return add(twice(value), 3_i32);

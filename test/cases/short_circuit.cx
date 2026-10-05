@@ -1,9 +1,9 @@
-auto mark = [](counter: ptr) -> bool {
+fn mark(counter: ptr) -> bool {
   #deref(counter, i32) = #deref(counter, i32) + 1_i32;
   return true;
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto calls = 0_i32;
   if (false && mark(#addrof(calls))) { calls = 100_i32; }
   if (true || mark(#addrof(calls))) { }

@@ -14,6 +14,7 @@
 %token CONTINUE /* continue */
 %token ELSE     /* else */
 %token FALSE    /* false */
+%token FN       /* fn */
 %token IF       /* if */
 %token LOOP     /* loop */
 %token PTR      /* ptr */
@@ -86,7 +87,7 @@ ty:
   | ty=INT_TY { Ast.Int ty }
   | LBRACKET ty=ty SEMI cnt=INT RBRACKET { Ast.Array (ty, cnt) }
   | PTR { Ast.Ptr }
-  | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, ty) RPAREN rty=option(preceded(ARROW,ty))
+  | FN LPAREN items=separated_list(COMMA, ty) RPAREN rty=option(preceded(ARROW,ty))
     { Ast.Func (items, rty) }
   | id=ID { Ast.Named id }
 
@@ -124,8 +125,6 @@ expr:
   | LBRACKET items=separated_nonempty_list(COMMA, expr) RBRACKET { Ast.NewArray items }
   | id=ID LBRACE items=separated_nonempty_list(COMMA, _pair_idexpr) RBRACE
     { Ast.NewStruct (id, items) }
-  | LBRACKET RBRACKET LPAREN items=separated_list(COMMA, _pair_idty) RPAREN
-    rty=option(preceded(ARROW,ty)) body=block { Ast.NewFunc (items, rty, body) }
   | var=expr EQ expr=expr { Ast.Assn (var, expr) }
   | op=uop expr=expr { Ast.Unary (op, expr) }
   | lhs=expr op=bop rhs=expr { Ast.Binary (lhs, op, rhs) }
@@ -154,7 +153,8 @@ block:
   | LBRACE stmts=list(stmt) RBRACE { stmts }
 
 gdecl:
-  | AUTO id=ID EQ expr=expr { Ast.Global (id, expr) }
+  | FN id=ID LPAREN params=separated_list(COMMA, _pair_idty) RPAREN
+    rty=option(preceded(ARROW,ty)) body=block { Ast.Fn (id, params, rty, body) }
   | STRUCT id=ID LBRACE fields=separated_nonempty_list(COMMA, _pair_idty) RBRACE
     { Ast.Struct (id, fields) }
 

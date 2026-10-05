@@ -1,0 +1,7 @@
+fn identity(value: i32) -> i32 {
+  return value;
+}
+
+fn test_entry() -> i32 {
+  return identity(42_u32);
+}

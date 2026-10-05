@@ -1,4 +1,4 @@
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto value = #cast(u8, #cast(i16, 257_i32) + 1_i16);
   auto signed = #cast(i32, #cast(i8, 255_u8));
   if (#cast(bool, 0_i32) || !#cast(bool, value)) {

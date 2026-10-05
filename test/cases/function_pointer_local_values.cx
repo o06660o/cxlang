@@ -1,0 +1,14 @@
+fn increment(value: i32) -> i32 {
+  return value + 1_i32;
+}
+
+fn double(value: i32) -> i32 {
+  return value * 2_i32;
+}
+
+fn test_entry() -> i32 {
+  auto transform = increment;
+  auto copy = transform;
+  transform = double;
+  return copy(20_i32) + transform(10_i32) + copy(0_i32);
+}

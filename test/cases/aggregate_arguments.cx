@@ -8,19 +8,19 @@ struct Record {
   right: i32
 }
 
-auto make_pair = []() -> Pair {
+fn make_pair() -> Pair {
   return Pair { first: 10_i32, second: 11_i32 };
 }
 
-auto sum_pair = [](value: Pair) -> i32 {
+fn sum_pair(value: Pair) -> i32 {
   return value.first + value.second;
 }
 
-auto sum_record = [](value: Record) -> i32 {
+fn sum_record(value: Record) -> i32 {
   return value.left + value.right;
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto pair = make_pair();
   return sum_pair(pair) + sum_record(Record { left: 8_i32, right: 9_i32 });
 }

@@ -1,17 +1,22 @@
 struct FunctionPair {
-  first: [](i32) -> i32,
-  second: [](i32) -> i32
+  first: fn(i32) -> i32,
+  second: fn(i32) -> i32
 }
 
 struct Runner {
-  run: [](i32) -> i32
+  run: fn(i32) -> i32
 }
 
-auto test_entry = []() -> i32 {
-  auto functions = [
-    [](value: i32) -> i32 { return value + 1_i32; },
-    [](value: i32) -> i32 { return value * 2_i32; }
-  ];
+fn increment(value: i32) -> i32 {
+  return value + 1_i32;
+}
+
+fn double(value: i32) -> i32 {
+  return value * 2_i32;
+}
+
+fn test_entry() -> i32 {
+  auto functions = [increment, double];
   auto pair = FunctionPair { first: functions[0_i32], second: functions[1_i32] };
   auto record = Runner { run: pair.first };
   record.run = pair.second;

@@ -1,4 +1,4 @@
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   auto negative = 0_i32 - 17_i32;
   auto quotient = negative / 5_i32;
   auto remainder = negative % 5_i32;

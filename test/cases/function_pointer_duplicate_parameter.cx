@@ -1,0 +1,7 @@
+fn invalid(value: i32, value: i32) -> i32 {
+  return value;
+}
+
+fn test_entry() -> i32 {
+  return invalid(20_i32, 22_i32);
+}

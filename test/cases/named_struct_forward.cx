@@ -6,6 +6,6 @@ struct Second {
   value: i32
 }
 
-auto test_entry = []() -> i32 {
+fn test_entry() -> i32 {
   return 0_i32;
 }

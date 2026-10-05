@@ -169,45 +169,6 @@ let rec emit_expr (expr : Ast.expr) (ctx : ctx) : Ast.ty * Llvm.lltype * Llvm.ll
           (Llvm.undef llty) indexed_values
       in
       (Ast.Named id, llty, llval)
-  | Ast.NewFunc (params, rty, body) ->
-      let ptys = List.map snd params in
-      let ty = Ast.Func (ptys, rty) in
-      let llptys = Array.of_list (List.map (fun ty -> emit_ty ty ctx) ptys) in
-      let llrty = match rty with None -> Llvm.void_type ctx.llctx | Some ty -> emit_ty ty ctx in
-      let llfty = Llvm.function_type llrty llptys in
-      let globals =
-        match List.rev ctx.vars with
-        | globals :: _ -> globals
-        | [] -> error "internal: unexpected empty `ctx.vars`"
-      in
-      let llfn = Llvm.define_function "" llfty ctx.llmod in
-      Llvm.set_linkage Llvm.Linkage.Internal llfn;
-
-      let vars = Hashtbl.create 16 in
-      let fctx =
-        {
-          ctx with
-          llbdr = Llvm.builder_at_end ctx.llctx (Llvm.entry_block llfn);
-          vars = [ vars; globals ];
-          break_blks = [];
-          continue_blks = [];
-        }
-      in
-      List.iter2
-        (fun (id, pty) llpval ->
-          if Hashtbl.mem vars id then error "duplicate parameter \"%s\"" id;
-          let llpty = emit_ty pty fctx in
-          let addr = Llvm.build_alloca llpty id fctx.llbdr in
-          ignore (Llvm.build_store llpval addr fctx.llbdr);
-          Hashtbl.add vars id (pty, llpty, addr))
-        params
-        (Array.to_list (Llvm.params llfn));
-      let terminated = emit_block body fctx in
-      (if not terminated then
-         match rty with
-         | None -> ignore (Llvm.build_ret_void fctx.llbdr)
-         | Some _ -> error "control reaches end of non-void lambda");
-      (ty, emit_ty ty ctx, llfn)
   | Ast.Assn (var, expr) ->
       let ty, llty, addr = addreval var ctx in
       let ety, _, llval = emit_expr expr ctx in
@@ -472,19 +433,6 @@ and emit_block (block : Ast.block) (ctx : ctx) : bool =
 
 let emit_gdecl (gdecl : Ast.gdecl) (ctx : ctx) : unit =
   match gdecl with
-  | Ast.Global (id, expr) ->
-      let vars =
-        match ctx.vars with
-        | [ vars ] -> vars
-        | _ -> error "internal: global declaration outside module scope"
-      in
-      if Hashtbl.mem vars id then error "duplicate variable declaration \"%s\"" id;
-      (match expr with
-      | Ast.NewFunc _ -> ()
-      | _ -> error "global declaration \"%s\" requires a lambda" id);
-      let ty, llty, llval = emit_expr expr ctx in
-      let addr = Llvm.define_global id llval ctx.llmod in
-      Hashtbl.add vars id (ty, llty, addr)
   | Ast.Struct (id, fields) ->
       if Hashtbl.mem ctx.types id then error "duplicate struct declaration \"%s\"" id;
       let field_names = List.map fst fields in
@@ -501,6 +449,47 @@ let emit_gdecl (gdecl : Ast.gdecl) (ctx : ctx) : unit =
       Hashtbl.add ctx.types id (fields, llty);
       let llfields = Array.of_list (List.map (fun (_, ty) -> emit_ty ty ctx) fields) in
       Llvm.struct_set_body llty llfields false
+  | Ast.Fn (id, params, result, body) ->
+      let globals =
+        match List.rev ctx.vars with
+        | globals :: _ -> globals
+        | [] -> error "internal: unexpected empty `ctx.vars`"
+      in
+      if Hashtbl.mem globals id then error "duplicate function declaration \"%s\"" id;
+      let param_tys = List.map snd params in
+      let llptys = Array.of_list (List.map (fun ty -> emit_ty ty ctx) param_tys) in
+      let llrty =
+        match result with None -> Llvm.void_type ctx.llctx | Some ty -> emit_ty ty ctx
+      in
+      let llfty = Llvm.function_type llrty llptys in
+      let impl_name = id ^ "$impl" in
+      let value = Llvm.define_function impl_name llfty ctx.llmod in
+      Llvm.set_linkage Llvm.Linkage.Internal value;
+      let slot = Llvm.define_global id value ctx.llmod in
+      let fn_ty = Ast.Func (param_tys, result) in
+      Hashtbl.add globals id (fn_ty, emit_ty fn_ty ctx, slot);
+      let vars = Hashtbl.create 16 in
+      Llvm.position_at_end (Llvm.entry_block value) ctx.llbdr;
+      ctx.vars <- vars :: ctx.vars;
+      ctx.break_blks <- [];
+      ctx.continue_blks <- [];
+      List.iter2
+        (fun (param_id, param_ty) llparam ->
+          if Hashtbl.mem vars param_id then error "duplicate parameter \"%s\"" param_id;
+          let llparam_ty = emit_ty param_ty ctx in
+          let addr = Llvm.build_alloca llparam_ty param_id ctx.llbdr in
+          ignore (Llvm.build_store llparam addr ctx.llbdr);
+          Hashtbl.add vars param_id (param_ty, llparam_ty, addr))
+        params
+        (Array.to_list (Llvm.params value));
+      let terminated = emit_block body ctx in
+      if not terminated then
+        match result with
+        | None -> ignore (Llvm.build_ret_void ctx.llbdr)
+        | Some _ -> error "control reaches end of non-void function \"%s\"" id
+      (match ctx.vars with
+      | _ :: tl -> ctx.vars <- tl
+      | [] -> error "internal: unexpected empty `ctx.vars`")
 
 let codegen (prog : Ast.prog) (llctx : Llvm.llcontext) : Llvm.llmodule =
   let ctx = ctx_create llctx in
